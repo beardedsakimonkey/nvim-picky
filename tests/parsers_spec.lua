@@ -1,0 +1,36 @@
+local t = require("helpers")
+local parsers = require("picky.parsers")
+
+t.describe("parsers.path", function()
+  t.it("builds a path item", function()
+    t.eq({ id = "lua/picky/init.lua", text = "lua/picky/init.lua", path = "lua/picky/init.lua" },
+      parsers.path("lua/picky/init.lua"))
+  end)
+
+  t.it("ignores empty lines", function()
+    t.eq(nil, parsers.path(""))
+  end)
+end)
+
+t.describe("parsers.vimgrep", function()
+  t.it("parses path:lnum:col:text", function()
+    local item = assert(parsers.vimgrep("lua/picky/session.lua:289:5:local function update_input()"))
+    t.eq("lua/picky/session.lua:289:5", item.id)
+    t.eq("lua/picky/session.lua", item.path)
+    t.eq(289, item.lnum)
+    t.eq(5, item.col)
+    t.eq("local function update_input()", item.text)
+    t.eq({ "path", "text" }, item.fields)
+  end)
+
+  t.it("keeps colons in the matched text", function()
+    local item = assert(parsers.vimgrep("a.txt:1:1:key: value"))
+    t.eq("a.txt", item.path)
+    t.eq("key: value", item.text)
+  end)
+
+  t.it("returns nil for unstructured lines", function()
+    t.eq(nil, parsers.vimgrep("no location here"))
+    t.eq(nil, parsers.vimgrep(""))
+  end)
+end)
