@@ -171,6 +171,12 @@ function Session:set_query(query)
   end
   self.query = query
   self.terms = query_parser.parse(query)
+  -- A new query is a new result list: the cursor belongs on the best match,
+  -- not wherever the previous query left it. Dropping the active id here
+  -- moves the cursor to the top exactly once — _fix_active re-anchors it on
+  -- the first results of the new query and keeps it stable across later
+  -- chunks.
+  self.active_id = nil
   if self.live then
     self:_debounced_restart()
   else
