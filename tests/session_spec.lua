@@ -120,6 +120,43 @@ t.describe("session", function()
     t.eq("a", session.active_id)
   end)
 
+  t.it("moves the cursor to the top on query change even if the active item survives", function()
+    local session, source = new_session()
+    source.contexts[1].emit({ { id = "a", text = "apple" }, { id = "b", text = "apricot" } })
+    source.contexts[1].finish()
+    session:move(1)
+    t.eq("b", session.active_id)
+    session:set_query("ap") -- both items still match
+    t.eq("a", session.active_id)
+  end)
+
+  t.it("keeps the cursor stable across result chunks of one query", function()
+    local session, source = new_session()
+    session:set_query("ap")
+    source.contexts[1].emit({ { id = "a", text = "xapx" } })
+    t.eq("a", session.active_id)
+    -- "ap" ranks above "xapx" and sorts to the top, but arriving chunks must
+    -- not steal the cursor.
+    source.contexts[1].emit({ { id = "b", text = "ap" } })
+    t.eq({ "ap", "xapx" }, visible_texts(session))
+    t.eq("a", session.active_id)
+  end)
+
+  t.it("re-anchors the cursor once per query for live sources", function()
+    local session, source = new_session({ refresh = "query" })
+    source.contexts[1].emit({ { id = "a", text = "one" }, { id = "b", text = "two" } })
+    session:move(1)
+    t.eq("b", session.active_id)
+    session:set_query("x")
+    t.wait(function()
+      return source.started == 2
+    end)
+    source.contexts[2].emit({ { id = "c", text = "third" } })
+    t.eq("c", session.active_id)
+    source.contexts[2].emit({ { id = "d", text = "fourth" } })
+    t.eq("c", session.active_id, "later chunks must not move the cursor")
+  end)
+
   t.it("clamps move to the match list", function()
     local session, source = new_session()
     source.contexts[1].emit({ { id = 1, text = "one" }, { id = 2, text = "two" } })

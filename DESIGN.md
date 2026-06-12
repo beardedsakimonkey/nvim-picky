@@ -7,7 +7,9 @@
 - Represent results as structured items rather than encoded strings.
 - Make queries work naturally across multiple item fields.
 - Separate source execution, matching, session state, rendering, and actions.
-- Preserve stable ordering as results are filtered or refreshed.
+- Preserve stable ordering as results are filtered or refreshed; the cursor
+  follows its item, except on a query change, where it returns to the top
+  match once the new results arrive.
 - Make the core behavior testable without opening a UI.
 
 ## Public API
@@ -78,7 +80,9 @@ remain on the actual item instead of being copied into a separate action payload
 ### Identity
 
 `id` identifies an item across filtering, sorting, and source refreshes. It is
-used to preserve selections and, where appropriate, the active item.
+used to preserve selections and, where appropriate, the active item. Selections
+survive everything; the active item survives refreshes and incremental result
+chunks, but a query change resets the cursor to the top match.
 
 Examples:
 
@@ -485,6 +489,10 @@ The UI should call these operations rather than manipulate indexes and tables
 directly.
 
 Selections are stored by item ID and returned in current visible order.
+
+The active item is tracked by ID. It stays put as result chunks stream in and
+across `refresh()`, but `set_query()` drops it so the cursor lands on the top
+match of the new query — exactly once, not on every chunk.
 
 ## UI
 
