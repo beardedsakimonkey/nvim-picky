@@ -12,6 +12,37 @@ t.describe("parsers.path", function()
   end)
 end)
 
+t.describe("parsers.file_item", function()
+  t.it("splits into a Normal filename and a Comment directory", function()
+    local cwd = assert(vim.uv.cwd())
+    local item = parsers.file_item(cwd .. "/lua/picky/init.lua")
+    t.eq("lua/picky/init.lua", item.text)
+    t.eq("init.lua", item.name)
+    t.eq("lua/picky", item.dir)
+    t.eq(cwd .. "/lua/picky/init.lua", item.path)
+    t.eq({ "name", "dir", "text" }, item.fields)
+    t.eq({
+      { field = "name" },
+      { text = " " },
+      { field = "dir", hl = "Comment" },
+    }, item.display)
+  end)
+
+  t.it("shows ~ for files under the home directory", function()
+    local item = parsers.file_item(vim.fn.expand("~") .. "/note.md")
+    t.eq("note.md", item.name)
+    t.eq("~", item.dir)
+  end)
+
+  t.it("renders the filename alone for files in the cwd root", function()
+    local item = parsers.file_item(assert(vim.uv.cwd()) .. "/Makefile")
+    t.eq("Makefile", item.name)
+    t.eq(nil, item.dir)
+    t.eq({ "name", "text" }, item.fields)
+    t.eq({ { field = "name" } }, item.display)
+  end)
+end)
+
 t.describe("parsers.vimgrep", function()
   t.it("parses path:lnum:col:text", function()
     local item = assert(parsers.vimgrep("lua/picky/session.lua:289:5:local function update_input()"))

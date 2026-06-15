@@ -2,6 +2,8 @@
 ---created (creation time matters: by the time the source starts, the picker's
 ---prompt buffer is current).
 
+local parsers = require("picky.parsers")
+
 ---@param opts { current: number? }?
 ---@return PickySource
 return function(opts)
@@ -15,12 +17,10 @@ return function(opts)
       for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
         if vim.bo[bufnr].buflisted and bufnr ~= exclude then
           local name = vim.api.nvim_buf_get_name(bufnr)
-          items[#items + 1] = {
-            id = bufnr,
-            bufnr = bufnr,
-            text = name ~= "" and vim.fn.fnamemodify(name, ":~:.") or "[No Name]",
-            path = name ~= "" and name or nil,
-          }
+          local item = name ~= "" and parsers.file_item(name) or { text = "[No Name]" }
+          item.id = bufnr
+          item.bufnr = bufnr
+          items[#items + 1] = item
         end
       end
       ctx.emit(items)

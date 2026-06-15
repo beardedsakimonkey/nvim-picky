@@ -281,9 +281,12 @@ end
 function UI:_decorate_row(lnum, line, entry)
   for _, chunk in ipairs(entry.meta) do
     if chunk.hl and chunk.len > 0 then
+      -- Below PickyMatch (200) so match highlights stay visible on top of a
+      -- chunk's base highlight (e.g. a matched filename in `Normal`).
       vim.api.nvim_buf_set_extmark(self.results_buf, ns, lnum, chunk.start, {
         end_col = chunk.start + chunk.len,
         hl_group = chunk.hl,
+        priority = 100,
         strict = false,
       })
     end
