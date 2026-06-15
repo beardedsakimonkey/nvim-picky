@@ -215,6 +215,30 @@ The action context contains:
 Actions keep the picker open unless they call `ctx.close()`. Selected targets
 are returned in visible order.
 
+## Highlights
+
+Picky defines its own highlight groups so you can restyle the picker without
+touching global groups like `NormalFloat`. Every group is a `default` link, so
+your own definition wins:
+
+```lua
+-- Give the picker its own background and a dimmer directory color.
+vim.api.nvim_set_hl(0, "PickyNormal", { bg = "#11131a" })
+vim.api.nvim_set_hl(0, "PickyDir", { link = "NonText" })
+```
+
+| Group           | Links to      | Used for                              |
+| --------------- | ------------- | ------------------------------------- |
+| `PickyNormal`   | `NormalFloat` | result/prompt window text, background |
+| `PickyBorder`   | `FloatBorder` | result/prompt window border           |
+| `PickyMatch`    | `Special`     | matched characters                    |
+| `PickyDir`      | `Comment`     | directory and path context            |
+| `PickySelected` | `Visual`      | multi-selected rows                   |
+| `PickyPrompt`   | `Comment`     | the `>` prompt symbol                 |
+| `PickyCounter`  | `Comment`     | the `n/total` counter                 |
+| `PickyError`    | `ErrorMsg`    | source error text                     |
+| `PickyEmpty`    | `Comment`     | the `no results` placeholder          |
+
 ## Custom Command Sources
 
 Commands are argument arrays, not shell strings. A command source may load once

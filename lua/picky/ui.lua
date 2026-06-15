@@ -6,18 +6,11 @@ local M = {}
 
 local ns = vim.api.nvim_create_namespace("picky")
 
-local highlights = {
-  PickyMatch = "Special",
-  PickyPrompt = "Comment",
-  PickySelected = "Visual",
-  PickyCounter = "Comment",
-  PickyError = "ErrorMsg",
-  PickyEmpty = "Comment",
-}
+require("picky.highlights")
 
-for group, link in pairs(highlights) do
-  vim.api.nvim_set_hl(0, group, { link = link, default = true })
-end
+-- Map the floating windows' base groups onto picky's own, so users can restyle
+-- the picker via PickyNormal/PickyBorder without touching global float groups.
+local winhighlight = "NormalFloat:PickyNormal,FloatBorder:PickyBorder"
 
 ---@class PickyUI
 ---@field session PickySession
@@ -129,6 +122,7 @@ function UI:open()
   })
   vim.wo[self.results_win].cursorline = false
   vim.wo[self.results_win].scrolloff = 0
+  vim.wo[self.results_win].winhighlight = winhighlight
 
   self.prompt_buf = vim.api.nvim_create_buf(false, true)
   vim.bo[self.prompt_buf].bufhidden = "wipe"
@@ -141,6 +135,7 @@ function UI:open()
     border = layout.border,
     style = "minimal",
   })
+  vim.wo[self.prompt_win].winhighlight = winhighlight
 
   vim.api.nvim_buf_set_extmark(self.prompt_buf, ns, 0, 0, {
     virt_text = { { "> ", "PickyPrompt" } },

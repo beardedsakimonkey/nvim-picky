@@ -24,7 +24,7 @@ t.describe("parsers.file_item", function()
     t.eq({
       { field = "name" },
       { text = " " },
-      { field = "dir", hl = "Comment" },
+      { field = "dir", hl = "PickyDir" },
     }, item.display)
   end)
 
