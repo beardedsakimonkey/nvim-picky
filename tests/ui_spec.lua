@@ -87,12 +87,14 @@ t.describe("ui", function()
     end)
     local buf = vim.api.nvim_win_get_buf(results_win())
     local marks = vim.api.nvim_buf_get_extmarks(buf, -1, 0, -1, { details = true })
-    local groups = {}
+    local prio = {}
     for _, mark in ipairs(marks) do
-      groups[mark[4].hl_group or ""] = true
+      prio[mark[4].hl_group or ""] = mark[4].priority
     end
-    t.ok(groups.Comment, "chunk highlight expected")
-    t.ok(groups.PickyMatch, "match highlight expected")
+    t.ok(prio.Comment, "chunk highlight expected")
+    t.ok(prio.PickyMatch, "match highlight expected")
+    -- Match highlights must draw on top of a chunk's base highlight.
+    t.ok(prio.PickyMatch > prio.Comment, "match must outrank chunk highlight")
     session:close()
   end)
 

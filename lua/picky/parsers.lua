@@ -1,6 +1,40 @@
----Line parsers for common command output.
+---Line parsers and item constructors for common command output and paths.
 
 local M = {}
+
+---Build an item for a filesystem path that renders as `filename dir`. The
+---directory is shown relative to the cwd, with `~` for the home directory; a
+---file in the cwd root renders the filename alone. `name`, `dir`, and the full
+---relative `text` are all searchable, so matches highlight on whichever
+---component they land in while full-path queries still match.
+---@param path string absolute filesystem path
+---@return PickyItem
+function M.file_item(path)
+  local rel = vim.fn.fnamemodify(path, ":~:.")
+  local name = vim.fn.fnamemodify(rel, ":t")
+  local dir = vim.fn.fnamemodify(rel, ":h")
+  if dir == "." then
+    return {
+      text = rel,
+      name = name,
+      path = path,
+      fields = { "name", "text" },
+      display = { { field = "name" } },
+    }
+  end
+  return {
+    text = rel,
+    name = name,
+    dir = dir,
+    path = path,
+    fields = { "name", "dir", "text" },
+    display = {
+      { field = "name" },
+      { text = " " },
+      { field = "dir", hl = "Comment" },
+    },
+  }
+end
 
 ---One path per line, e.g. fd output.
 ---@param line string
