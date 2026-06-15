@@ -14,7 +14,7 @@ local winhighlight = "NormalFloat:PickyNormal,FloatBorder:PickyBorder"
 
 ---@class PickyUI
 ---@field session PickySession
----@field config table
+---@field config PickyConfig
 local UI = {}
 UI.__index = UI
 
@@ -61,7 +61,7 @@ local function char_len(b)
 end
 
 ---@param session PickySession
----@param config table
+---@param config PickyConfig
 ---@return PickyUI
 function M.new(session, config)
   local self = setmetatable({
