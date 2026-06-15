@@ -14,18 +14,20 @@ local parsers = require("picky.parsers")
 ---@field args string[]? extra fd arguments
 ---@field executable string? defaults to "fd"
 ---@field debounce number?
+---@field colors boolean? show fd's coloring in the result window (default true)
 
 ---@param opts PickyFilesOpts?
 ---@return PickyCommandSource
 return function(opts)
   opts = opts or {}
+  local colors = opts.colors ~= false
   return command({
     name = "Files",
     cwd = opts.cwd,
     refresh = opts.live and "query" or "once",
     debounce = opts.debounce,
     command = function(ctx)
-      local cmd = { opts.executable or "fd", "--color=never", "--type=file" }
+      local cmd = { opts.executable or "fd", colors and "--color=always" or "--color=never", "--type=file" }
       if opts.hidden then
         cmd[#cmd + 1] = "--hidden"
       end
@@ -41,6 +43,17 @@ return function(opts)
       end
       return cmd
     end,
-    parse = parsers.path,
+    -- With colors on, fd's LS_COLORS output already conveys structure, so the
+    -- whole path stays one searchable text field carrying ANSI highlights.
+    parse = colors and function(line)
+      if line == "" then
+        return nil
+      end
+      local text, highlights = require("picky.ansi").parse(line)
+      if text == "" then
+        return nil
+      end
+      return { id = text, text = text, path = text, highlights = highlights }
+    end or parsers.path,
   })
 end

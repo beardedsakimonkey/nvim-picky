@@ -121,23 +121,34 @@ end)
 
 t.describe("sources.files", function()
   t.it("builds the fd argument array", function()
-    local source = sources.files({ hidden = true, follow = true, limit = 10, args = { "--extra" } })
+    local source = sources.files({ colors = false, hidden = true, follow = true, limit = 10, args = { "--extra" } })
     local cmd = source._opts.command({ query = "", cwd = "." })
     t.eq({ "fd", "--color=never", "--type=file", "--hidden", "--follow", "--max-results=10", "--extra" }, cmd)
     t.eq("once", source.refresh)
   end)
 
   t.it("appends the query as a fixed string when live", function()
-    local source = sources.files({ live = true, executable = "myfd" })
+    local source = sources.files({ colors = false, live = true, executable = "myfd" })
     local cmd = source._opts.command({ query = "init", cwd = "." })
     t.eq({ "myfd", "--color=never", "--type=file", "--fixed-strings", "--", "init", "." }, cmd)
     t.eq("query", source.refresh)
+  end)
+
+  t.it("colorizes output by default", function()
+    local source = sources.files()
+    local cmd = source._opts.command({ query = "", cwd = "." })
+    t.eq("--color=always", cmd[2])
+    local item = assert(source._opts.parse("\27[1;34m" .. "lua" .. "\27[0m/init.lua"))
+    t.eq("lua/init.lua", item.text)
+    t.eq("lua/init.lua", item.path)
+    t.eq({ from = 0, to = 3, hl = item.highlights[1].hl }, item.highlights[1])
   end)
 end)
 
 t.describe("sources.grep", function()
   t.it("builds the rg argument array for a fixed pattern", function()
     local source = sources.grep({
+      colors = false,
       pattern = "update_input",
       fixed_strings = true,
       smart_case = true,
@@ -165,6 +176,24 @@ t.describe("sources.grep", function()
     t.eq(true, source._opts.skip_empty_query)
     local cmd = source._opts.command({ query = "needle", cwd = "." })
     t.eq("needle", cmd[#cmd - 1])
+  end)
+
+  t.it("colorizes matches by default, keeping the location fields", function()
+    local source = sources.grep()
+    local cmd = source._opts.command({ query = "x", cwd = "." })
+    t.eq("--color=always", cmd[4])
+    -- rg --vimgrep --color=always: path/line/col then a colored match in text.
+    local line = "a.lua:12:5:before \27[1m\27[31mNEEDLE\27[0m after"
+    local item = assert(source._opts.parse(line))
+    t.eq("a.lua", item.path)
+    t.eq(12, item.lnum)
+    t.eq(5, item.col)
+    t.eq("before NEEDLE after", item.text)
+    -- Rendered line is `path` .. "  " .. `text`; "NEEDLE" starts after "before ".
+    local match_col = #item.path + 2 + #"before "
+    t.eq(1, #item.highlights)
+    t.eq(match_col, item.highlights[1].from)
+    t.eq(match_col + #"NEEDLE", item.highlights[1].to)
   end)
 end)
 

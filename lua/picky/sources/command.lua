@@ -14,6 +14,7 @@ local process = require("picky.process")
 ---@field debounce number?
 ---@field success_codes number[]? exit codes treated as success, default { 0 }
 ---@field skip_empty_query boolean? finish without running when the query is empty
+---@field ansi boolean? parse ANSI color codes in output into highlights (ignored when `parse` is set)
 
 ---@class PickyCommandSource : PickySource
 ---@field _opts PickyCommandOpts the options the source was built from; exposed for tests
@@ -37,6 +38,9 @@ return function(opts)
   local function parse_line(line, ctx)
     if opts.parse then
       return opts.parse(line, ctx)
+    end
+    if opts.ansi then
+      return require("picky.parsers").ansi(line)
     end
     if line ~= "" then
       return { text = line }
