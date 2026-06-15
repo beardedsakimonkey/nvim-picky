@@ -16,7 +16,7 @@ local M = {}
 ---@type PickyConfig
 M.defaults = {
   window = {
-    border = "single",
+    border = "rounded",
     width = 0.7,
     height = 0.8,
     input_position = "top",
@@ -25,7 +25,7 @@ M.defaults = {
     ["<Esc>"] = "close",
     ["<CR>"] = "edit",
     ["<C-s>"] = "split",
-    ["<C-l>"] = "vsplit",
+    ["<C-v>"] = "vsplit",
     ["<C-t>"] = "tabedit",
     ["<C-q>"] = "quickfix",
     ["<C-j>"] = "next",
