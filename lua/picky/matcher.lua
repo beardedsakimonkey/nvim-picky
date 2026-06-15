@@ -12,6 +12,18 @@
 
 local M = {}
 
+-- Fuzzy scoring weights. A matched character is worth BASE; a run of adjacent
+-- matches earns CONSECUTIVE; a match at the start of a word earns BOUNDARY.
+-- Each character of gap between two matches costs GAP, so a tight match near
+-- the start of the word beats the same characters scattered across the string
+-- (e.g. `pl` should rank "plugins.lua" above "picky.lua", where the `l` only
+-- matches deep in the ".lua" extension). BOUNDARY stays larger than the gap a
+-- short word introduces, so acronym matches like `fb` -> "foo_bar" still win.
+local BASE = 1
+local CONSECUTIVE = 8
+local BOUNDARY = 10
+local GAP = 1
+
 local function fold(s)
   return s:lower()
 end
@@ -90,12 +102,17 @@ local function match_term(value, term)
     if is_char_start(value:byte(found)) then
       positions[#positions + 1] = found
     end
-    score = score + 1
-    if last > 0 and found == last + 1 then
-      score = score + 5
+    score = score + BASE
+    if last > 0 then
+      local gap = found - last - 1
+      if gap == 0 then
+        score = score + CONSECUTIVE
+      else
+        score = score - gap * GAP
+      end
     end
     if at_boundary(hay:byte(found - 1)) then
-      score = score + 10
+      score = score + BOUNDARY
     end
     last = found
     from = found + 1
