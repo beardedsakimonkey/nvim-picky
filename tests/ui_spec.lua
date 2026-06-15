@@ -98,6 +98,31 @@ t.describe("ui", function()
     session:close()
   end)
 
+  t.it("renders a highlight on a literal chunk", function()
+    local session = open_static({
+      {
+        id = 1,
+        text = "main.lua",
+        display = {
+          { text = "λ", hl = "DevIconLua" },
+          { text = " " },
+          { field = "text" },
+        },
+      },
+    })
+    t.eq({ "λ main.lua" }, result_lines())
+    local buf = vim.api.nvim_win_get_buf(results_win())
+    local marks = vim.api.nvim_buf_get_extmarks(buf, -1, 0, -1, { details = true })
+    local found = false
+    for _, mark in ipairs(marks) do
+      if mark[4].hl_group == "DevIconLua" then
+        found = true
+      end
+    end
+    t.ok(found, "literal chunk highlight expected")
+    session:close()
+  end)
+
   t.it("paints item highlights below match highlights", function()
     local session = open_static({
       { id = 1, text = "abc", highlights = { { from = 0, to = 3, hl = "String" } } },

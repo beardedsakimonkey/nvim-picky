@@ -9,8 +9,9 @@ M.parsers = require("picky.parsers")
 M.actions = require("picky.actions")
 
 ---Establish global defaults. Optional; `open()` works without it.
----@param opts table?
+---@param opts PickyConfigOpts?
 function M.setup(opts)
+  opts = opts or {}
   require("picky.config").setup(opts)
 end
 

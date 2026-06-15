@@ -157,6 +157,18 @@ top-level item value, which lets the renderer translate match positions into
 highlights without an extra mapping callback. Sources that need derived display
 text should materialize it as another item field.
 
+`hl` applies a highlight group to the rendered chunk.
+
+### Icons
+
+File-type icons are an optional enhancement layered on the same data model. When
+`nvim-web-devicons` is installed, file-based sources call `picky.icons.annotate`,
+which prepends a `{ text = icon, hl = hl }` chunk. The annotation is a
+no-op when the plugin is absent or `picky.setup({ icons = false })` disabled it,
+so the core stays dependency-free. When an item already carries line-relative
+`highlights` (such as ANSI spans), they are shifted past the icon prefix so
+coloring stays aligned.
+
 This representation should be kept deliberately small. More complex rendering
 can be introduced only when a real source requires it.
 

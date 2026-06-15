@@ -8,6 +8,8 @@ A small, dependency-free picker for Neovim built around structured items.
 - [`fd`](https://github.com/sharkdp/fd) for `picky.sources.files()`
 - [`ripgrep`](https://github.com/BurntSushi/ripgrep) for
   `picky.sources.grep()` and live help search
+- [`nvim-web-devicons`](https://github.com/nvim-tree/nvim-web-devicons)
+  (optional) for file-type icons
 
 ## Setup
 
@@ -90,6 +92,18 @@ picky.open({ source = picky.sources.help({ live = true }) })
 `files()` accepts additional `fd` arguments through `args`. `grep()` accepts
 additional `rg` arguments through `args`. Both accept `executable` to override
 the command name.
+
+## Icons
+
+When [`nvim-web-devicons`](https://github.com/nvim-tree/nvim-web-devicons) is
+installed, file-based sources (`files()`, `buffers()`, `oldfiles()`) render a
+file-type icon before each entry, colored with the plugin's own highlight
+group. Icons are a no-op when the plugin is absent. Turn them off even when the
+plugin is installed with:
+
+```lua
+picky.setup({ icons = false })
+```
 
 ## Items
 

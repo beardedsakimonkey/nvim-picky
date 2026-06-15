@@ -15,27 +15,30 @@ function M.file_item(path)
   local rel = vim.fn.fnamemodify(path, ":~:.")
   local name = vim.fn.fnamemodify(rel, ":t")
   local dir = vim.fn.fnamemodify(rel, ":h")
+  local item
   if dir == "." then
-    return {
+    item = {
       text = rel,
       name = name,
       path = path,
       fields = { "name", "text" },
       display = { { field = "name" } },
     }
+  else
+    item = {
+      text = rel,
+      name = name,
+      dir = dir,
+      path = path,
+      fields = { "name", "dir", "text" },
+      display = {
+        { field = "name" },
+        { text = " " },
+        { field = "dir", hl = "PickyDir" },
+      },
+    }
   end
-  return {
-    text = rel,
-    name = name,
-    dir = dir,
-    path = path,
-    fields = { "name", "dir", "text" },
-    display = {
-      { field = "name" },
-      { text = " " },
-      { field = "dir", hl = "PickyDir" },
-    },
-  }
+  return require("picky.icons").annotate(item, path)
 end
 
 ---A colorized line, e.g. a command run with `--color=always`. ANSI escape

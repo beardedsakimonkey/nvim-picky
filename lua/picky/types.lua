@@ -20,7 +20,8 @@
 
 ---A display chunk has either `field` or `text`, not both. A field chunk
 ---renders the exact top-level item value, which lets the renderer translate
----match positions into highlights.
+---match positions into highlights. `hl` applies a highlight group to the
+---rendered chunk.
 ---@class PickyDisplayChunk
 ---@field text string?
 ---@field field string?

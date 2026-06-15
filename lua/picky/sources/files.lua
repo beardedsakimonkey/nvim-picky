@@ -53,7 +53,11 @@ return function(opts)
       if text == "" then
         return nil
       end
-      return { id = text, text = text, path = text, highlights = highlights }
-    end or parsers.path,
+      local item = { id = text, text = text, path = text, highlights = highlights }
+      return require("picky.icons").annotate(item, text)
+    end or function(line)
+      local item = parsers.path(line)
+      return item and require("picky.icons").annotate(item, item.path) or nil
+    end,
   })
 end

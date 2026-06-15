@@ -8,10 +8,23 @@ local M = {}
 ---@field height number Window height as a fraction of the editor height (0-1).
 ---@field input_position "top"|"bottom" Where the query input is placed relative to the result list.
 
+---@class PickyWindowConfigOpts
+---@field border string?
+---@field width number?
+---@field height number?
+---@field input_position "top"|"bottom"?
+
 ---@class PickyConfig
 ---@field window PickyWindowConfig Floating window appearance.
 ---@field keymaps table<string, string> Maps keys (in the input buffer) to action names.
 ---@field debounce integer Milliseconds to wait after a keystroke before refiltering.
+---@field icons boolean Whether file-type icons are enabled when nvim-web-devicons is available.
+
+---@class PickyConfigOpts
+---@field window PickyWindowConfigOpts?
+---@field keymaps table<string, string>?
+---@field debounce integer?
+---@field icons boolean?
 
 ---@type PickyConfig
 M.defaults = {
@@ -44,18 +57,19 @@ M.defaults = {
     ["<C-a>"] = "toggle_all",
   },
   debounce = 40,
+  icons = true,
 }
 
 M.options = vim.deepcopy(M.defaults)
 
 ---Sets up global default options.
----@param opts PickyConfig? Partial config overriding the defaults.
+---@param opts PickyConfigOpts? Partial config overriding the defaults.
 function M.setup(opts)
   M.options = vim.tbl_deep_extend("force", vim.deepcopy(M.defaults), opts or {})
 end
 
 ---Merge per-picker options over the global options.
----@param opts PickyConfig? Partial config overriding the global options.
+---@param opts PickyConfigOpts? Partial config overriding the global options.
 ---@return PickyConfig
 function M.merge(opts)
   return vim.tbl_deep_extend("force", vim.deepcopy(M.options), opts or {})
