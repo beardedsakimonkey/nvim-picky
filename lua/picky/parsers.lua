@@ -3,10 +3,12 @@
 local M = {}
 
 ---Build an item for a filesystem path that renders as `filename dir`. The
----directory is shown relative to the cwd, with `~` for the home directory; a
----file in the cwd root renders the filename alone. `name`, `dir`, and the full
----relative `text` are all searchable, so matches highlight on whichever
----component they land in while full-path queries still match.
+---filename is left unhighlighted (it inherits the result window's PickyNormal)
+---and the directory is dimmed with `PickyDir`. The directory is shown relative
+---to the cwd, with `~` for the home directory; a file in the cwd root renders
+---the filename alone. `name`, `dir`, and the full relative `text` are all
+---searchable, so matches highlight on whichever component they land in while
+---full-path queries still match.
 ---@param path string absolute filesystem path
 ---@return PickyItem
 function M.file_item(path)
@@ -31,7 +33,7 @@ function M.file_item(path)
     display = {
       { field = "name" },
       { text = " " },
-      { field = "dir", hl = "Comment" },
+      { field = "dir", hl = "PickyDir" },
     },
   }
 end
@@ -62,7 +64,7 @@ function M.vimgrep(line)
     text = text,
     fields = { "path", "text" },
     display = {
-      { field = "path", hl = "Comment" },
+      { field = "path", hl = "PickyDir" },
       { text = "  " },
       { field = "text" },
     },
