@@ -8,7 +8,15 @@
 ---@field text string?
 ---@field fields string[]? searchable top-level string fields, default { "text" }
 ---@field display string|PickyDisplayChunk[]?
+---@field highlights PickyHighlight[]? line-relative color spans (e.g. parsed from ANSI), painted below PickyMatch
 ---@field [string] any source-owned data (path, bufnr, tag, lnum, col, ...)
+
+---A color span over the rendered line. Offsets are 0-based byte columns into
+---the concatenated display line, end-exclusive.
+---@class PickyHighlight
+---@field from number
+---@field to number
+---@field hl string highlight group name
 
 ---A display chunk has either `field` or `text`, not both. A field chunk
 ---renders the exact top-level item value, which lets the renderer translate

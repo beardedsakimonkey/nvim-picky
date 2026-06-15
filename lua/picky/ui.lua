@@ -286,6 +286,18 @@ function UI:_decorate_row(lnum, line, entry)
       })
     end
   end
+  -- Colors parsed from ANSI output sit above a chunk's base highlight but
+  -- below PickyMatch, so fuzzy-match highlighting stays visible on top.
+  for _, span in ipairs(entry.item.highlights or {}) do
+    if span.to > span.from then
+      vim.api.nvim_buf_set_extmark(self.results_buf, ns, lnum, span.from, {
+        end_col = span.to,
+        hl_group = span.hl,
+        priority = 150,
+        strict = false,
+      })
+    end
+  end
   for _, chunk in ipairs(entry.meta) do
     local positions = chunk.field and entry.match.positions[chunk.field]
     if positions then

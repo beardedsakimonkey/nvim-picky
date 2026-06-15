@@ -98,6 +98,26 @@ t.describe("ui", function()
     session:close()
   end)
 
+  t.it("paints item highlights below match highlights", function()
+    local session = open_static({
+      { id = 1, text = "abc", highlights = { { from = 0, to = 3, hl = "String" } } },
+    })
+    set_prompt("a")
+    t.wait(function()
+      return session.query == "a"
+    end)
+    local buf = vim.api.nvim_win_get_buf(results_win())
+    local marks = vim.api.nvim_buf_get_extmarks(buf, -1, 0, -1, { details = true })
+    local prio = {}
+    for _, mark in ipairs(marks) do
+      prio[mark[4].hl_group or ""] = mark[4].priority
+    end
+    t.ok(prio.String, "item highlight expected")
+    t.ok(prio.PickyMatch, "match highlight expected")
+    t.ok(prio.PickyMatch > prio.String, "match must outrank item highlight")
+    session:close()
+  end)
+
   t.it("shows an empty state", function()
     local session = open_static({ { id = 1, text = "one" } })
     set_prompt("nomatch")

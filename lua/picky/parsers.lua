@@ -38,6 +38,23 @@ function M.file_item(path)
   }
 end
 
+---A colorized line, e.g. a command run with `--color=always`. ANSI escape
+---codes are stripped from the searchable/displayed `text` and re-expressed as
+---`highlights` spans, so the original coloring renders while matching and
+---display operate on the clean text.
+---@param line string
+---@return PickyItem?
+function M.ansi(line)
+  if line == "" then
+    return nil
+  end
+  local text, highlights = require("picky.ansi").parse(line)
+  if text == "" then
+    return nil
+  end
+  return { id = text, text = text, highlights = highlights }
+end
+
 ---One path per line, e.g. fd output.
 ---@param line string
 ---@return PickyItem?
