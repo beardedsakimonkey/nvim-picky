@@ -29,6 +29,21 @@ t.describe("matcher", function()
     t.eq({ "session", "sources" }, matched_texts(items, "ses"))
   end)
 
+  t.it("ranks a tight match above one scattered across a gap", function()
+    -- `pl` should favour "plugins.lua" (p,l adjacent at the start) over
+    -- names where the `l` only matches deep in the ".lua" extension, even
+    -- though that `l` sits on a word boundary.
+    local items = { { text = "picky.lua" }, { text = "plugins.lua" } }
+    t.eq("plugins.lua", matched_texts(items, "pl")[1])
+  end)
+
+  t.it("ranks a boundary acronym above a non-boundary match", function()
+    -- The gap penalty must not bury acronym matches: `fb` should favour
+    -- "foo_bar" (both chars start a word) over "fabric" (b mid-word).
+    local items = { { text = "fabric" }, { text = "foo_bar" } }
+    t.eq("foo_bar", matched_texts(items, "fb")[1])
+  end)
+
   t.it("requires every term to match", function()
     local items = { { text = "foo bar" }, { text = "foo" } }
     t.eq({ "foo bar" }, matched_texts(items, "foo bar"))
