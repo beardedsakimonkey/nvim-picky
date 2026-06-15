@@ -18,6 +18,16 @@ M.defaults = {
     ["<C-q>"] = "quickfix",
     ["<C-j>"] = "next",
     ["<C-k>"] = "previous",
+    ["<Down>"] = "next",
+    ["<Up>"] = "previous",
+    ["<ScrollWheelDown>"] = "scroll_down",
+    ["<ScrollWheelUp>"] = "scroll_up",
+    ["<PageDown>"] = "page_down",
+    ["<PageUp>"] = "page_up",
+    ["<C-f>"] = "page_down",
+    ["<C-b>"] = "page_up",
+    ["<Home>"] = "first",
+    ["<End>"] = "last",
     ["<Tab>"] = "toggle",
     ["<C-a>"] = "toggle_all",
   },
@@ -26,6 +36,7 @@ M.defaults = {
 
 M.options = vim.deepcopy(M.defaults)
 
+---Sets up global default options.
 ---@param opts table?
 function M.setup(opts)
   M.options = vim.tbl_deep_extend("force", vim.deepcopy(M.defaults), opts or {})

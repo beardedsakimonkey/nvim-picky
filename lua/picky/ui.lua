@@ -177,7 +177,13 @@ function UI:_setup_keymaps()
   for lhs, rhs in pairs(self.config.keymaps or {}) do
     if rhs ~= false then
       vim.keymap.set({ "i", "n" }, lhs, function()
-        self.session:run_action(rhs)
+        if rhs == "page_down" then
+          self.session:move(vim.api.nvim_win_get_height(self.results_win))
+        elseif rhs == "page_up" then
+          self.session:move(-vim.api.nvim_win_get_height(self.results_win))
+        else
+          self.session:run_action(rhs)
+        end
       end, { buffer = self.prompt_buf, nowait = true })
     end
   end

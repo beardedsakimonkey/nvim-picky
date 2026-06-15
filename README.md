@@ -180,7 +180,8 @@ Keymap values are built-in action names, action functions, or `false` to remove
 a default mapping.
 
 Built-in actions are `edit`, `split`, `vsplit`, `tabedit`, `quickfix`, and
-`close`. Navigation actions are `next`, `previous`, `toggle`, and `toggle_all`.
+`close`. Navigation actions are `next`, `previous`, `page_down`, `page_up`,
+`scroll_down`, `scroll_up`, `first`, `last`, `toggle`, and `toggle_all`.
 
 Action functions receive the original emitted items:
 

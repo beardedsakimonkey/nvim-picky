@@ -261,6 +261,26 @@ function Session:move(offset)
   self:_notify()
 end
 
+---@param direction 1|-1
+function Session:page(direction)
+  local size = self.config.page_size or 10
+  self:move(size * direction)
+end
+
+---@param direction 1|-1
+function Session:scroll(direction)
+  local n = tonumber((vim.o.mousescroll or ""):match("ver:(%d+)"))
+  self:move((n or 3) * direction)
+end
+
+function Session:to_first()
+  self:move(-#self.matches)
+end
+
+function Session:to_last()
+  self:move(#self.matches)
+end
+
 ---Toggle the active item's selection and advance.
 function Session:toggle()
   local current = self:current_item()
@@ -303,22 +323,20 @@ function Session:action_context()
     targets = self:targets(),
     query = self.query,
     cwd = self.cwd,
-    close = function()
-      self:close()
-    end,
-    refresh = function()
-      self:refresh()
-    end,
+    close = function() self:close() end,
+    refresh = function() self:refresh() end,
   }
 end
 
 local navigation = {
-  next = function(self)
-    self:move(1)
-  end,
-  previous = function(self)
-    self:move(-1)
-  end,
+  next = function(self) self:move(1) end,
+  previous = function(self) self:move(-1) end,
+  page_down = function(self) self:page(1) end,
+  page_up = function(self) self:page(-1) end,
+  scroll_down = function(self) self:scroll(1) end,
+  scroll_up = function(self) self:scroll(-1) end,
+  first = function(self) self:to_first() end,
+  last = function(self) self:to_last() end,
   toggle = Session.toggle,
   toggle_all = Session.toggle_all,
 }

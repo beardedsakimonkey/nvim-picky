@@ -236,8 +236,62 @@ t.describe("session", function()
     t.eq(2, session.active_id)
     session:run_action("previous")
     t.eq(1, session.active_id)
+    source.contexts[1].emit({ { id = 3, text = "three" }, { id = 4, text = "four" } })
+    session.config.page_size = 2
+    session:run_action("page_down")
+    t.eq(3, session.active_id)
+    session:run_action("page_up")
+    t.eq(1, session.active_id)
     session:run_action("toggle")
     t.eq({ [1] = true }, session.selected)
+  end)
+
+  t.it("page_down and page_up move by the configured page size", function()
+    local session, source = new_session()
+    local items = {}
+    for i = 1, 10 do
+      items[i] = { id = i, text = "item" .. i }
+    end
+    source.contexts[1].emit(items)
+    session.config.page_size = 4
+    session:run_action("page_down")
+    t.eq(5, session.active_id)
+    session:run_action("page_up")
+    t.eq(1, session.active_id)
+  end)
+
+  t.it("first and last jump to the ends of the match list", function()
+    local session, source = new_session()
+    source.contexts[1].emit({
+      { id = 1, text = "one" },
+      { id = 2, text = "two" },
+      { id = 3, text = "three" },
+    })
+    session:run_action("last")
+    t.eq(3, session.active_id)
+    session:run_action("first")
+    t.eq(1, session.active_id)
+  end)
+
+  t.it("scroll moves by 'mousescroll' vertical lines, defaulting to 3", function()
+    local session, source = new_session()
+    local items = {}
+    for i = 1, 10 do
+      items[i] = { id = i, text = "item" .. i }
+    end
+    source.contexts[1].emit(items)
+
+    local saved = vim.o.mousescroll
+    vim.o.mousescroll = "ver:2,hor:6"
+    session:run_action("scroll_down")
+    t.eq(3, session.active_id)
+    session:run_action("scroll_up")
+    t.eq(1, session.active_id)
+
+    vim.o.mousescroll = "hor:6"
+    session:run_action("scroll_down")
+    t.eq(4, session.active_id, "falls back to 3 lines when 'mousescroll' lacks ver")
+    vim.o.mousescroll = saved
   end)
 
   t.it("close is idempotent and stops the source", function()
