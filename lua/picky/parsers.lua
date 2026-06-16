@@ -58,16 +58,6 @@ function M.ansi(line)
   return { id = text, text = text, highlights = highlights }
 end
 
----One path per line, e.g. fd output.
----@param line string
----@return PickyItem?
-function M.path(line)
-  if line == "" then
-    return nil
-  end
-  return { id = line, text = line, path = line }
-end
-
 ---`path:lnum:col:text` locations, e.g. `rg --vimgrep` output.
 ---@param line string
 ---@return PickyItem?

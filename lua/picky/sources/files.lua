@@ -3,7 +3,16 @@
 ---lists everything.
 
 local command = require("picky.sources.command")
-local parsers = require("picky.parsers")
+
+---One path per line, e.g. fd output.
+---@param line string
+---@return PickyItem?
+local function parse_path(line)
+  if line == "" then
+    return nil
+  end
+  return { id = line, text = line, path = line }
+end
 
 ---@class PickyFilesOpts
 ---@field cwd string?
@@ -56,7 +65,7 @@ return function(opts)
       local item = { id = text, text = text, path = text, highlights = highlights }
       return require("picky.icons").annotate(item, text)
     end or function(line)
-      local item = parsers.path(line)
+      local item = parse_path(line)
       return item and require("picky.icons").annotate(item, item.path) or nil
     end,
   })
