@@ -17,7 +17,7 @@ end
 ---@field cwd string?
 ---@field hidden boolean?
 ---@field follow boolean?
----@field limit number?
+---@field limit number? safety cap on paths loaded; unset means load every file so local matching is exhaustive
 ---@field args string[]? extra fd arguments
 ---@field executable string? defaults to "fd"
 ---@field colors boolean? show fd's coloring in the result window (default true)

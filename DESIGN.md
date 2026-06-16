@@ -33,9 +33,7 @@ picky.setup({
 })
 
 picky.open({
-  source = picky.sources.files({
-    limit = 100,
-  }),
+  source = picky.sources.files(),
 })
 ```
 

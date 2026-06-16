@@ -75,6 +75,38 @@ t.describe("session", function()
     t.eq({ "b", "a" }, visible_texts(session))
   end)
 
+  t.it("narrows the match set as the query grows", function()
+    local session, source = new_session()
+    source.contexts[1].emit({
+      { id = 1, text = "apple" },
+      { id = 2, text = "apply" },
+      { id = 3, text = "orange" },
+    })
+    source.contexts[1].finish()
+    session:set_query("a") -- all three contain 'a'
+    t.eq({ "apple", "apply", "orange" }, visible_texts(session))
+    session:set_query("ap") -- narrows: orange drops
+    t.eq({ "apple", "apply" }, visible_texts(session))
+    session:set_query("apple") -- narrows further
+    t.eq({ "apple" }, visible_texts(session))
+    session:set_query("appl") -- backspace: full rematch re-expands
+    t.eq({ "apple", "apply" }, visible_texts(session))
+  end)
+
+  t.it("re-expands via full rematch when an inverse term widens", function()
+    local session, source = new_session()
+    source.contexts[1].emit({
+      { id = 1, text = "foo" },
+      { id = 2, text = "foobar" },
+      { id = 3, text = "bar" },
+    })
+    source.contexts[1].finish()
+    session:set_query("!foo") -- exclude anything containing "foo"
+    t.eq({ "bar" }, visible_texts(session))
+    session:set_query("!foob") -- now only "foobar" is excluded; must re-expand
+    t.eq({ "foo", "bar" }, visible_texts(session))
+  end)
+
   t.it("restarts query sources with debounce", function()
     local session, source = new_session({ refresh = "query", debounce = 5 })
     t.eq(1, source.started)
