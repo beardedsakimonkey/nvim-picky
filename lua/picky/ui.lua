@@ -8,6 +8,15 @@ local ns = vim.api.nvim_create_namespace("picky")
 
 require("picky.highlights")
 
+-- Resolve a window dimension against the editor size: values <= 1 are treated
+-- as a fraction of `total`, values > 1 as an absolute number of cells.
+local function resolve_dimension(value, total)
+  if value <= 1 then
+    return math.floor(total * value)
+  end
+  return math.floor(value)
+end
+
 -- Map the floating windows' base groups onto picky's own, so users can restyle
 -- the picker via PickyNormal/PickyBorder without touching global float groups.
 local winhighlight = "NormalFloat:PickyNormal,FloatBorder:PickyBorder"
@@ -79,8 +88,8 @@ function UI:layout()
   local border = win.border or "single"
   local pad = (border == "none" or border == "") and 0 or 2
 
-  local total_width = math.max(math.floor(vim.o.columns * win.width), 20)
-  local total_height = math.max(math.floor(vim.o.lines * win.height), 5)
+  local total_width = math.max(resolve_dimension(win.width, vim.o.columns), 20)
+  local total_height = math.max(resolve_dimension(win.height, vim.o.lines), 5)
   local results_height = math.max(total_height - 1 - 2 * pad, 1)
   local col = math.max(math.floor((vim.o.columns - total_width - pad) / 2), 0)
   local row = math.max(math.floor((vim.o.lines - total_height) / 2), 0)
