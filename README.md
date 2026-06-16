@@ -45,6 +45,10 @@ picky.open({
 })
 ```
 
+`window.width` and `window.height` are read as a fraction of the editor size
+when `<= 1`, or as an absolute number of columns/rows when `> 1` (e.g.
+`width = 120`, `height = 30`).
+
 `open()` is the only picker entry point. A source decides whether it loads once
 or restarts when the query changes.
 

@@ -4,8 +4,8 @@ local M = {}
 
 ---@class PickyWindowConfig
 ---@field border string Border style passed to nvim_open_win (e.g. "single", "rounded", "none").
----@field width number Window width as a fraction of the editor width (0-1).
----@field height number Window height as a fraction of the editor height (0-1).
+---@field width number Window width: a fraction of the editor width when <= 1, or an absolute number of columns when > 1.
+---@field height number Window height: a fraction of the editor height when <= 1, or an absolute number of rows when > 1.
 ---@field input_position "top"|"bottom" Where the query input is placed relative to the result list.
 
 ---@class PickyWindowConfigOpts
