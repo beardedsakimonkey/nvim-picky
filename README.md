@@ -38,9 +38,7 @@ picky.setup({
 
 ```lua
 picky.open({
-  source = picky.sources.files({
-    limit = 100,
-  }),
+  source = picky.sources.files(),
   window = {
     width = 0.9,
   },
@@ -61,14 +59,16 @@ picky.open({ source = picky.sources.buffers() })
 -- Existing files from vim.v.oldfiles.
 picky.open({ source = picky.sources.oldfiles({ limit = 100 }) })
 
--- Files below cwd. fd lists the tree once; picky filters and ranks locally,
--- so frecency (see below) and fuzzy matching order the results together.
+-- Files below cwd. fd lists the whole tree once; picky filters and ranks
+-- locally, so frecency (see below) and fuzzy matching order the results
+-- together. `limit` is an optional safety cap on how many paths are loaded --
+-- leave it unset so matching sees every file; set it only to bound enormous
+-- trees.
 picky.open({
   source = picky.sources.files({
     cwd = vim.fn.getcwd(),
     hidden = false,
     follow = false,
-    limit = 100,
   }),
 })
 

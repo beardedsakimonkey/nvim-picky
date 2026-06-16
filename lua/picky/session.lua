@@ -34,6 +34,42 @@ Session.__index = Session
 
 local M = {}
 
+---True when going from `old_query` to `new_query` can only shrink the result
+---set, so we may re-filter the current matches instead of re-scanning every
+---item. Valid only for a pure append (the new query is the old one plus typed
+---characters) where the appended characters keep matching monotonic:
+---
+---  * appending to a fresh term (the old query ended in whitespace) always
+---    narrows -- an extra term only adds a constraint;
+---  * otherwise the final term grows in place, which stays a subset only when it
+---    is a positive, non-suffix-anchored term (fuzzy/exact/prefix). Growing an
+---    inverse term widens (`!foo` excludes more than `!foox`), and a typed `$`
+---    re-anchors a term to a suffix, neither of which is a subset.
+---
+---Anything else (backspace, mid-string edits, pastes) falls back to a full
+---rematch.
+---@param old_query string
+---@param old_terms PickyTerm[]
+---@param new_query string
+---@return boolean
+local function can_narrow(old_query, old_terms, new_query)
+  if old_query == "" or #new_query <= #old_query or new_query:sub(1, #old_query) ~= old_query then
+    return false
+  end
+  local appended = new_query:sub(#old_query + 1)
+  if appended:find("%s") then
+    return false
+  end
+  if old_query:find("%s$") then
+    return true
+  end
+  if appended:find("%$") then
+    return false
+  end
+  local last = old_terms[#old_terms]
+  return last ~= nil and (last.kind == "fuzzy" or last.kind == "exact" or last.kind == "prefix")
+end
+
 ---@param opts { source: PickySource, config: table?, on_update: fun()? }
 ---@return PickySession
 function M.new(opts)
@@ -185,6 +221,7 @@ function Session:set_query(query)
   if self.closed or query == self.query then
     return
   end
+  local previous_query, previous_terms = self.query, self.terms
   self.query = query
   self.terms = query_parser.parse(query)
   -- A new query is a new result list: the cursor belongs on the best match,
@@ -196,9 +233,34 @@ function Session:set_query(query)
   if self.live then
     self:_debounced_restart()
   else
-    self:_rematch()
+    -- When typing only adds constraints, re-filter the current matches instead
+    -- of every item — the dominant case, and the one that keeps a full-tree
+    -- file list responsive per keystroke.
+    if can_narrow(previous_query, previous_terms, query) then
+      self:_narrow()
+    else
+      self:_rematch()
+    end
     self:_notify()
   end
+end
+
+---Re-filter the current match set against the current terms. Sound only when
+---the new query narrows the old (see `can_narrow`): matches of the stricter
+---query are a subset of the current matches, so items already filtered out
+---cannot reappear.
+function Session:_narrow()
+  local kept = {}
+  for _, m in ipairs(self.matches) do
+    local nm = matcher.match_item(self.items[m.index], self.terms, m.index)
+    if nm then
+      kept[#kept + 1] = nm
+    end
+  end
+  self.matches = kept
+  self:_apply_bonus(self.matches)
+  matcher.sort(self.matches)
+  self:_fix_active()
 end
 
 function Session:_debounced_restart()
