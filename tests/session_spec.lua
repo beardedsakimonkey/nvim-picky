@@ -64,6 +64,17 @@ t.describe("session", function()
     t.eq({ "apple", "banana" }, visible_texts(session))
   end)
 
+  t.it("adds a source bonus to match scores when ordering", function()
+    local session, source = new_session()
+    source.bonus = function(item)
+      return item.text == "b" and 100 or 0
+    end
+    source.contexts[1].emit({ { id = 1, text = "a" }, { id = 2, text = "b" } })
+    source.contexts[1].finish()
+    -- Empty query: equal base scores, so the bonus alone floats "b" above "a".
+    t.eq({ "b", "a" }, visible_texts(session))
+  end)
+
   t.it("restarts query sources with debounce", function()
     local session, source = new_session({ refresh = "query", debounce = 5 })
     t.eq(1, source.started)

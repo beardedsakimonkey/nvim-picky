@@ -122,6 +122,7 @@ function Session:_on_emit(items)
     end
   else
     new_matches = matcher.match(self.items, self.terms, first_new)
+    self:_apply_bonus(new_matches)
     vim.list_extend(self.matches, new_matches)
     matcher.sort(self.matches)
     self:_fix_active()
@@ -149,9 +150,24 @@ function Session:_rematch()
     end
   else
     self.matches = matcher.match(self.items, self.terms)
+    self:_apply_bonus(self.matches)
     matcher.sort(self.matches)
   end
   self:_fix_active()
+end
+
+---Add the source's per-item ranking bonus (e.g. frecency) to each match score
+---before sorting. No-op for sources without a bonus or in live mode, where the
+---source itself owns ordering.
+---@param matches PickyMatch[]
+function Session:_apply_bonus(matches)
+  local bonus = self.source.bonus
+  if not bonus then
+    return
+  end
+  for _, m in ipairs(matches) do
+    m.score = m.score + (bonus(self.items[m.index]) or 0)
+  end
 end
 
 ---Keep the active id if still visible, otherwise fall back to the first

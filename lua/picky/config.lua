@@ -14,17 +14,27 @@ local M = {}
 ---@field height number?
 ---@field input_position "top"|"bottom"?
 
+---@class PickyFrecencyConfig
+---@field enabled boolean Track file reads/writes and rank file sources by frecency.
+---@field path string? Path to the mpack store; defaults to stdpath("state")/picky/frecency.mpack.
+
+---@class PickyFrecencyConfigOpts
+---@field enabled boolean?
+---@field path string?
+
 ---@class PickyConfig
 ---@field window PickyWindowConfig Floating window appearance.
 ---@field keymaps table<string, string> Maps keys (in the input buffer) to action names.
 ---@field debounce integer Milliseconds to wait after a keystroke before refiltering.
 ---@field icons boolean Whether file-type icons are enabled when nvim-web-devicons is available.
+---@field frecency PickyFrecencyConfig Frecency tracking for file sources.
 
 ---@class PickyConfigOpts
 ---@field window PickyWindowConfigOpts?
 ---@field keymaps table<string, string>?
 ---@field debounce integer?
 ---@field icons boolean?
+---@field frecency PickyFrecencyConfigOpts?
 
 ---@type PickyConfig
 M.defaults = {
@@ -58,6 +68,10 @@ M.defaults = {
   },
   debounce = 40,
   icons = true,
+  frecency = {
+    enabled = true,
+    -- path defaults to stdpath("state")/picky/frecency.mpack inside the module.
+  },
 }
 
 M.options = vim.deepcopy(M.defaults)
