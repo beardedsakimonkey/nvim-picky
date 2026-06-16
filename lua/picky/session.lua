@@ -7,6 +7,13 @@
 ---For refresh = "query" sources the query itself drives the command, so the
 ---session does not re-filter emitted items locally; for refresh = "once"
 ---sources a query change re-matches the existing items.
+---
+---Matching for refresh = "once" sources is incremental and interruptible: each
+---pass evaluates items against the current terms in time-sliced batches across
+---the event loop (see `_match_step`), so a large list neither blocks the UI nor
+---stalls typing. A `match_gen` counter, bumped whenever a new pass starts,
+---makes any slice still queued from an older query a no-op, so a query change
+---abandons the in-flight match instead of waiting for it.
 
 local matcher = require("picky.matcher")
 local query_parser = require("picky.query")
@@ -25,7 +32,12 @@ local query_parser = require("picky.query")
 ---@field closed boolean
 ---@field live boolean
 ---@field cwd string
----@field generation number
+---@field generation number source lifecycle generation
+---@field match_gen number matching-pass generation; bumped to interrupt a pass
+---@field recheck number[] item indices a narrowing pass still has to re-evaluate
+---@field recheck_pos number cursor into `recheck`
+---@field scan_next number next contiguous item index a pass has yet to evaluate
+---@field match_scheduled boolean whether a continuation slice is queued
 ---@field auto_id number
 ---@field timer any? debounce timer (vim.uv timer handle)
 ---@field on_update fun()
@@ -34,10 +46,19 @@ Session.__index = Session
 
 local M = {}
 
+-- Items evaluated per scheduled matching slice. The first slice of every pass
+-- runs inline, so small sources still resolve in one tick; only the overflow of
+-- a large list streams across later ticks. Smaller keeps each slice snappier at
+-- the cost of more sort/notify passes; `config.match_batch` overrides it.
+local MATCH_BATCH = 4000
+
 ---True when going from `old_query` to `new_query` can only shrink the result
 ---set, so we may re-filter the current matches instead of re-scanning every
----item. Valid only for a pure append (the new query is the old one plus typed
----characters) where the appended characters keep matching monotonic:
+---item. The caller must also confirm the previous pass evaluated every current
+---item (`caught_up`); narrowing from a half-built match set would drop items the
+---previous pass had not reached yet. Valid only for a pure append (the new query
+---is the old one plus typed characters) where the appended characters keep
+---matching monotonic:
 ---
 ---  * appending to a fresh term (the old query ended in whitespace) always
 ---    narrows -- an extra term only adds a constraint;
@@ -91,6 +112,11 @@ function M.new(opts)
     live = (source.refresh or "once") == "query",
     cwd = source.cwd or assert(vim.uv.cwd()),
     generation = 0,
+    match_gen = 0,
+    recheck = {},
+    recheck_pos = 1,
+    scan_next = 1,
+    match_scheduled = false,
     auto_id = 0,
     timer = nil,
   }, Session)
@@ -118,7 +144,7 @@ function Session:_restart()
     self.source:stop()
   end
   self.items = {}
-  self.matches = {}
+  self:_reset_match()
   self.loading = true
   self.error = nil
   local ctx = {
@@ -150,24 +176,18 @@ function Session:_on_emit(items)
     end
     self.items[#self.items + 1] = item
   end
-  local new_matches
   if self.live then
-    new_matches = {}
+    -- Live sources delegate filtering to the command; every item is a match.
     for i = first_new, #self.items do
-      new_matches[#new_matches + 1] = { index = i, score = 0, positions = {} }
+      self.matches[#self.matches + 1] = { index = i, score = 0, positions = {} }
     end
-  else
-    new_matches = matcher.match(self.items, self.terms, first_new)
-    self:_apply_bonus(new_matches)
-    vim.list_extend(self.matches, new_matches)
-    matcher.sort(self.matches)
     self:_fix_active()
     self:_notify()
-    return
+  elseif not self.match_scheduled then
+    -- New items extend the contiguous scan. Run a slice now so the first chunk
+    -- renders this tick; a slice already in flight will reach them on its own.
+    self:_match_step(self.match_gen)
   end
-  vim.list_extend(self.matches, new_matches)
-  self:_fix_active()
-  self:_notify()
 end
 
 ---@param err string?
@@ -177,32 +197,74 @@ function Session:_on_finish(err)
   self:_notify()
 end
 
----Re-match all current items against the current terms (non-live sources).
-function Session:_rematch()
-  if self.live then
-    self.matches = {}
-    for i = 1, #self.items do
-      self.matches[#self.matches + 1] = { index = i, score = 0, positions = {} }
-    end
-  else
-    self.matches = matcher.match(self.items, self.terms)
-    self:_apply_bonus(self.matches)
-    matcher.sort(self.matches)
-  end
-  self:_fix_active()
+---Reset matching state and start a new pass generation, so any slice still
+---queued from the previous pass becomes a no-op (see `_match_step`).
+function Session:_reset_match()
+  self.match_gen = self.match_gen + 1
+  self.matches = {}
+  self.recheck = {}
+  self.recheck_pos = 1
+  self.scan_next = 1
+  self.match_scheduled = false
 end
 
----Add the source's per-item ranking bonus (e.g. frecency) to each match score
----before sorting. No-op for sources without a bonus or in live mode, where the
----source itself owns ordering.
----@param matches PickyMatch[]
-function Session:_apply_bonus(matches)
-  local bonus = self.source.bonus
-  if not bonus then
+---Begin a fresh matching pass against the current terms. `recheck` lists item
+---indices to re-evaluate — the previous matches for a narrowing pass, none for
+---a full rescan — and `scan_from` is the first contiguous item index to scan: 1
+---for a full rescan, or `#items + 1` for a narrow, where only later-arriving
+---items still need a first look. The first slice runs inline.
+---@param recheck number[]
+---@param scan_from number
+function Session:_begin_match(recheck, scan_from)
+  self:_reset_match()
+  self.recheck = recheck
+  self.scan_next = scan_from
+  self:_match_step(self.match_gen)
+end
+
+---Run one matching slice for pass `gen`: evaluate up to `match_batch` items —
+---the `recheck` list first, then the contiguous tail from `scan_next` — against
+---the current terms, add the source bonus, then sort and notify. While work
+---remains it reschedules itself onto the event loop. A `gen` other than the
+---live `match_gen` means a newer pass has superseded this one, so the slice
+---does nothing; returning before touching `match_scheduled` leaves the current
+---pass's own scheduling intact.
+---@param gen number
+function Session:_match_step(gen)
+  if self.closed or gen ~= self.match_gen then
     return
   end
-  for _, m in ipairs(matches) do
-    m.score = m.score + (bonus(self.items[m.index]) or 0)
+  self.match_scheduled = false
+  local items, terms, bonus = self.items, self.terms, self.source.bonus
+  for _ = 1, (self.config.match_batch or MATCH_BATCH) do
+    local i
+    if self.recheck_pos <= #self.recheck then
+      i = self.recheck[self.recheck_pos]
+      self.recheck_pos = self.recheck_pos + 1
+    elseif self.scan_next <= #items then
+      i = self.scan_next
+      self.scan_next = self.scan_next + 1
+    else
+      break
+    end
+    local m = matcher.match_item(items[i], terms, i)
+    if m then
+      if bonus then
+        m.score = m.score + (bonus(items[i]) or 0)
+      end
+      self.matches[#self.matches + 1] = m
+    end
+  end
+
+  matcher.sort(self.matches)
+  self:_fix_active()
+  self:_notify()
+
+  if self.recheck_pos <= #self.recheck or self.scan_next <= #items then
+    self.match_scheduled = true
+    vim.schedule(function()
+      self:_match_step(gen)
+    end)
   end
 end
 
@@ -228,39 +290,28 @@ function Session:set_query(query)
   -- not wherever the previous query left it. Dropping the active id here
   -- moves the cursor to the top exactly once — _fix_active re-anchors it on
   -- the first results of the new query and keeps it stable across later
-  -- chunks.
+  -- slices.
   self.active_id = nil
   if self.live then
     self:_debounced_restart()
+    return
+  end
+  -- Narrowing reuses the current match set, so it is sound only when the
+  -- previous pass evaluated every current item (`caught_up`); otherwise that
+  -- set is still partial and would drop items the pass had not reached. When it
+  -- holds and typing only adds constraints, re-check just the survivors instead
+  -- of every item — the dominant case, and the one that keeps a full-tree file
+  -- list responsive per keystroke.
+  local caught_up = self.recheck_pos > #self.recheck and self.scan_next > #self.items
+  if caught_up and can_narrow(previous_query, previous_terms, query) then
+    local indices = {}
+    for i = 1, #self.matches do
+      indices[i] = self.matches[i].index
+    end
+    self:_begin_match(indices, #self.items + 1)
   else
-    -- When typing only adds constraints, re-filter the current matches instead
-    -- of every item — the dominant case, and the one that keeps a full-tree
-    -- file list responsive per keystroke.
-    if can_narrow(previous_query, previous_terms, query) then
-      self:_narrow()
-    else
-      self:_rematch()
-    end
-    self:_notify()
+    self:_begin_match({}, 1)
   end
-end
-
----Re-filter the current match set against the current terms. Sound only when
----the new query narrows the old (see `can_narrow`): matches of the stricter
----query are a subset of the current matches, so items already filtered out
----cannot reappear.
-function Session:_narrow()
-  local kept = {}
-  for _, m in ipairs(self.matches) do
-    local nm = matcher.match_item(self.items[m.index], self.terms, m.index)
-    if nm then
-      kept[#kept + 1] = nm
-    end
-  end
-  self.matches = kept
-  self:_apply_bonus(self.matches)
-  matcher.sort(self.matches)
-  self:_fix_active()
 end
 
 function Session:_debounced_restart()
