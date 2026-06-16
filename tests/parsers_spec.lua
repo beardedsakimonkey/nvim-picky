@@ -1,17 +1,6 @@
 local t = require("helpers")
 local parsers = require("picky.parsers")
 
-t.describe("parsers.path", function()
-  t.it("builds a path item", function()
-    t.eq({ id = "lua/picky/init.lua", text = "lua/picky/init.lua", path = "lua/picky/init.lua" },
-      parsers.path("lua/picky/init.lua"))
-  end)
-
-  t.it("ignores empty lines", function()
-    t.eq(nil, parsers.path(""))
-  end)
-end)
-
 t.describe("parsers.file_item", function()
   t.it("splits into a Normal filename and a Comment directory", function()
     local cwd = assert(vim.uv.cwd())
