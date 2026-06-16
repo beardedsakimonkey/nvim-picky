@@ -477,6 +477,7 @@ picky.setup({
     ["<C-a>"] = "toggle_all",
   },
   debounce = 40,
+  match_batch = 4000,
   icons = true,
   frecency = {
     enabled = true,
@@ -484,6 +485,10 @@ picky.setup({
   },
 })
 ```
+
+`debounce` delays restarting a live source after a keystroke. `match_batch`
+caps how many items a local (non-live) source matches per event-loop slice; see
+[Incremental Matching](#incremental-matching).
 
 Per-picker options override global options:
 
@@ -535,6 +540,28 @@ Selections are stored by item ID and returned in current visible order.
 The active item is tracked by ID. It stays put as result chunks stream in and
 across `refresh()`, but `set_query()` drops it so the cursor lands on the top
 match of the new query — exactly once, not on every chunk.
+
+### Incremental Matching
+
+Local (non-live) sources can hold a very large item list — `files()` loads the
+whole tree. Matching that list against the query must not block the UI or stall
+typing, so each matching pass is incremental and interruptible:
+
+- A pass evaluates items against the current terms in time-sliced batches of
+  `config.match_batch` items. The first batch runs inline, so small sources
+  still resolve in a single tick; only the overflow streams across later
+  event-loop ticks, sorting and rendering progressively as it goes.
+- Each pass carries a generation. Starting a new pass bumps it, so any batch
+  still queued from an older query becomes a no-op when it runs. A query change
+  therefore *abandons* the in-flight match rather than waiting for it — the
+  point of the design when the user is typing quickly over a large list.
+- A query that only adds constraints re-checks just the previous survivors
+  rather than every item (`can_narrow`), but only once the previous pass has
+  evaluated every current item; narrowing from a half-built match set could
+  drop items it had not reached yet, so that case falls back to a full rescan.
+
+Live sources are unaffected: they delegate filtering to the command and emit
+already-ranked items, so the session only collects them.
 
 ## UI
 

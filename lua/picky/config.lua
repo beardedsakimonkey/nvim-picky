@@ -26,6 +26,7 @@ local M = {}
 ---@field window PickyWindowConfig Floating window appearance.
 ---@field keymaps table<string, string> Maps keys (in the input buffer) to action names.
 ---@field debounce integer Milliseconds to wait after a keystroke before refiltering.
+---@field match_batch integer Items matched per event-loop slice for local (non-live) sources.
 ---@field icons boolean Whether file-type icons are enabled when nvim-web-devicons is available.
 ---@field frecency PickyFrecencyConfig Frecency tracking for file sources.
 
@@ -33,6 +34,7 @@ local M = {}
 ---@field window PickyWindowConfigOpts?
 ---@field keymaps table<string, string>?
 ---@field debounce integer?
+---@field match_batch integer?
 ---@field icons boolean?
 ---@field frecency PickyFrecencyConfigOpts?
 
@@ -67,6 +69,11 @@ M.defaults = {
     ["<C-a>"] = "toggle_all",
   },
   debounce = 40,
+  -- Items a local source matches per event-loop slice. Matching streams across
+  -- ticks above this, keeping the UI responsive and interruptible on a large
+  -- list; a query change abandons the in-flight pass. Higher means fewer slices
+  -- (less overhead) but longer per-slice pauses.
+  match_batch = 4000,
   icons = true,
   frecency = {
     enabled = true,

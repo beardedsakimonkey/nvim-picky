@@ -107,6 +107,66 @@ t.describe("session", function()
     t.eq({ "foo", "bar" }, visible_texts(session))
   end)
 
+  t.it("matches a large list incrementally across event-loop slices", function()
+    local session, source = new_session(nil, { config = { debounce = 5, match_batch = 10 } })
+    local items = {}
+    for i = 1, 100 do
+      items[i] = { id = i, text = (i % 2 == 0 and "even" or "odd") .. i }
+    end
+    source.contexts[1].emit(items)
+    source.contexts[1].finish()
+    -- The first slice runs inline; the rest stream across scheduled slices.
+    session:set_query("even")
+    t.ok(#session.matches < 50, "the inline slice must not finish the whole list")
+    t.wait(function()
+      return not session.match_scheduled and #session.matches == 50
+    end)
+    for _, m in ipairs(session.matches) do
+      t.ok(session.items[m.index].text:find("even", 1, true), "only even items match")
+    end
+  end)
+
+  t.it("abandons an in-flight match when the query changes", function()
+    local session, source = new_session(nil, { config = { debounce = 5, match_batch = 1 } })
+    source.contexts[1].emit({
+      { id = 1, text = "alpha" },
+      { id = 2, text = "alpine" },
+      { id = 3, text = "beta" },
+      { id = 4, text = "gamma" },
+    })
+    source.contexts[1].finish()
+    -- A batch size of 1 forces the pass to span several scheduled slices.
+    session:set_query("al") -- starts a pass; only the first item is matched inline
+    session:set_query("be") -- supersedes it before the queued slices run
+    t.wait(function()
+      return not session.match_scheduled
+    end)
+    -- Slices left over from "al" must not contaminate the "be" results.
+    t.eq({ "beta" }, visible_texts(session))
+  end)
+
+  t.it("falls back to a full rematch when narrowing from a partial pass", function()
+    local session, source = new_session(nil, { config = { debounce = 5, match_batch = 1 } })
+    source.contexts[1].emit({
+      { id = 1, text = "apple" },
+      { id = 2, text = "apply" },
+      { id = 3, text = "apex" },
+      { id = 4, text = "apt" },
+    })
+    source.contexts[1].finish()
+    session:set_query("a") -- batch 1: only item 1 evaluated inline, rest queued
+    session:set_query("ap") -- previous pass is still partial, so narrowing is unsound
+    t.wait(function()
+      return not session.match_scheduled
+    end)
+    -- All four still match "ap"; narrowing from the partial set would drop the
+    -- three items the "a" pass had not reached yet.
+    t.eq(4, #session.matches)
+    for _, m in ipairs(session.matches) do
+      t.eq("ap", session.items[m.index].text:sub(1, 2))
+    end
+  end)
+
   t.it("restarts query sources with debounce", function()
     local session, source = new_session({ refresh = "query", debounce = 5 })
     t.eq(1, source.started)
