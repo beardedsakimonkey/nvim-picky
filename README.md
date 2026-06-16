@@ -39,7 +39,6 @@ picky.setup({
 ```lua
 picky.open({
   source = picky.sources.files({
-    live = true,
     limit = 100,
   }),
   window = {
@@ -62,11 +61,11 @@ picky.open({ source = picky.sources.buffers() })
 -- Existing files from vim.v.oldfiles.
 picky.open({ source = picky.sources.oldfiles({ limit = 100 }) })
 
--- Files below cwd. Set live=true to restart fd for each query.
+-- Files below cwd. fd lists the tree once; picky filters and ranks locally,
+-- so frecency (see below) and fuzzy matching order the results together.
 picky.open({
   source = picky.sources.files({
     cwd = vim.fn.getcwd(),
-    live = true,
     hidden = false,
     follow = false,
     limit = 100,
@@ -104,6 +103,30 @@ plugin is installed with:
 ```lua
 picky.setup({ icons = false })
 ```
+
+## Frecency
+
+File sources (`files()`, `buffers()`, `oldfiles()`) rank by **frecency**: files
+you open and edit often and recently float toward the top. picky records two
+exponentially-decaying scores per path — an *access* score (bumped when a file is
+read into or re-displayed in a window) and a *write* score (bumped on save) —
+and adds a bounded bonus to each item's match score. On an empty query the bonus
+alone orders the list; with a query it nudges ranking without overturning a
+clearly better text match.
+
+Tracking requires `setup()` (it installs the autocmds). State persists to an
+mpack file under `stdpath("state")`, merged across concurrent Neovim instances.
+
+```lua
+picky.setup({
+  frecency = {
+    enabled = true, -- default; set false to disable tracking and ranking
+    path = nil,     -- default: stdpath("state")/picky/frecency.mpack
+  },
+})
+```
+
+Opt a single `files()` picker out with `picky.sources.files({ frecency = false })`.
 
 ## Items
 

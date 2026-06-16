@@ -1,41 +1,38 @@
----File source backed by fd. With `live = true` the command restarts for
----each query, passing the query as a fixed string to fd; an empty query
----lists everything.
+---File source backed by fd, run once. fd lists the tree; picky filters and
+---ranks locally, which lets frecency contribute to the order (and, on an empty
+---query, drive it). Paths render relative to the cwd but carry their absolute
+---form for opening and frecency lookups.
 
 local command = require("picky.sources.command")
 
----One path per line, e.g. fd output.
+---Absolute, normalized path for an fd line relative to the search cwd.
 ---@param line string
----@return PickyItem?
-local function parse_path(line)
-  if line == "" then
-    return nil
-  end
-  return { id = line, text = line, path = line }
+---@param cwd string?
+---@return string
+local function absolute(line, cwd)
+  return vim.fs.normalize(vim.fs.joinpath(cwd or assert(vim.uv.cwd()), line))
 end
 
 ---@class PickyFilesOpts
 ---@field cwd string?
----@field live boolean?
 ---@field hidden boolean?
 ---@field follow boolean?
 ---@field limit number?
 ---@field args string[]? extra fd arguments
 ---@field executable string? defaults to "fd"
----@field debounce number?
 ---@field colors boolean? show fd's coloring in the result window (default true)
+---@field frecency boolean? rank by frecency (default true)
 
 ---@param opts PickyFilesOpts?
 ---@return PickyCommandSource
 return function(opts)
   opts = opts or {}
   local colors = opts.colors ~= false
-  return command({
+  local source = command({
     name = "Files",
     cwd = opts.cwd,
-    refresh = opts.live and "query" or "once",
-    debounce = opts.debounce,
-    command = function(ctx)
+    refresh = "once",
+    command = function()
       local cmd = { opts.executable or "fd", colors and "--color=always" or "--color=never", "--type=file" }
       if opts.hidden then
         cmd[#cmd + 1] = "--hidden"
@@ -47,14 +44,12 @@ return function(opts)
         cmd[#cmd + 1] = "--max-results=" .. opts.limit
       end
       vim.list_extend(cmd, opts.args or {})
-      if opts.live then
-        vim.list_extend(cmd, { "--fixed-strings", "--", ctx.query, "." })
-      end
       return cmd
     end,
     -- With colors on, fd's LS_COLORS output already conveys structure, so the
-    -- whole path stays one searchable text field carrying ANSI highlights.
-    parse = colors and function(line)
+    -- relative path stays one searchable text field carrying ANSI highlights;
+    -- `path` holds the absolute form for opening and frecency.
+    parse = colors and function(line, ctx)
       if line == "" then
         return nil
       end
@@ -62,11 +57,20 @@ return function(opts)
       if text == "" then
         return nil
       end
-      local item = { id = text, text = text, path = text, highlights = highlights }
+      local path = absolute(text, ctx and ctx.cwd)
+      local item = { id = path, text = text, path = path, highlights = highlights }
       return require("picky.icons").annotate(item, text)
-    end or function(line)
-      local item = parse_path(line)
-      return item and require("picky.icons").annotate(item, item.path) or nil
+    end or function(line, ctx)
+      if line == "" then
+        return nil
+      end
+      local path = absolute(line, ctx and ctx.cwd)
+      local item = { id = path, text = line, path = path }
+      return require("picky.icons").annotate(item, line)
     end,
   })
+  if opts.frecency ~= false then
+    source.bonus = require("picky.frecency").bonus
+  end
+  return source
 end

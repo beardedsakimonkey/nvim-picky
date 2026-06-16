@@ -372,6 +372,33 @@ parser, and item constructors.
 text search over runtime documentation and still emits items with `tag`, allowing
 normal actions to open the corresponding help document.
 
+`files()` is a static source: `fd` lists the tree once and the matcher filters
+and ranks locally. This keeps ranking in one place — the matcher — so frecency
+can contribute to the order alongside fuzzy scoring (a live source, which
+delegates filtering to the command and emits unscored items, cannot).
+
+### Frecency
+
+A source may expose `bonus(item) -> number`, a per-item ranking bonus the session
+adds to each match's score before sorting (static sources only; live sources own
+their own order). `picky.frecency` implements this for file sources.
+
+Each tracked path carries two exponentially-decaying scores: an *access* score
+bumped on `BufReadPost`/`BufWinEnter` and a *write* score bumped on
+`BufWritePost`. The decay (`score * 0.5 ^ (Δt / half_life)`) folds frequency and
+recency into one number per channel, so storage stays O(1) per file with no
+timestamp history. A per-channel cooldown coalesces rapid repeats (see the
+`COOLDOWN` comment in `frecency.lua`). The combined, weighted score maps through
+a saturating curve to a bounded bonus, sized so it cannot overturn a clearly
+better text match but, on an empty query where fuzzy scores are equal, orders the
+list outright.
+
+State is a single mpack table under `stdpath("state")`, loaded lazily, flushed
+debounced and on `VimLeavePre`. Each flush re-reads and merges the on-disk copy
+(later timestamp wins per channel) so concurrent Neovim instances do not clobber
+each other, and prunes negligible entries to keep the file small. Tracking is
+installed by `setup()` and gated by `config.frecency.enabled`.
+
 ## Actions and Keymaps
 
 Mapping values are either built-in action names or action functions:
@@ -452,6 +479,11 @@ picky.setup({
     ["<C-a>"] = "toggle_all",
   },
   debounce = 40,
+  icons = true,
+  frecency = {
+    enabled = true,
+    path = nil, -- stdpath("state")/picky/frecency.mpack
+  },
 })
 ```
 
