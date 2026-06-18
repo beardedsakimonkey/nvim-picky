@@ -5,13 +5,15 @@ local M = {}
 ---@class PickyWindowConfig
 ---@field border string Border style passed to nvim_open_win (e.g. "single", "rounded", "none").
 ---@field width number Window width: a fraction of the editor width when <= 1, or an absolute number of columns when > 1.
----@field height number Window height: a fraction of the editor height when <= 1, or an absolute number of rows when > 1.
+---@field height number Window height: a fraction of the editor height when <= 1, or an absolute number of rows when > 1. When `shrink` is set this is the maximum height.
+---@field shrink boolean Shrink the result window to fit the number of matches, up to `height`.
 ---@field input_position "top"|"bottom" Where the query input is placed relative to the result list.
 
 ---@class PickyWindowConfigOpts
 ---@field border string?
 ---@field width number?
 ---@field height number?
+---@field shrink boolean?
 ---@field input_position "top"|"bottom"?
 
 ---@class PickyFrecencyConfig
@@ -44,6 +46,7 @@ M.defaults = {
     border = "rounded",
     width = 0.7,
     height = 0.8,
+    shrink = false,
     input_position = "top",
   },
   keymaps = {

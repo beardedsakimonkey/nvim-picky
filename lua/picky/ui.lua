@@ -83,6 +83,9 @@ function M.new(session, config)
   return self
 end
 
+-- Static window anchors derived from the configured (maximum) size. The overall
+-- box is centered using `max_results`; with `shrink` the result window occupies
+-- fewer rows within that envelope (see `_geometry`/`_fit`).
 function UI:layout()
   local win = self.config.window
   local border = win.border or "single"
@@ -90,40 +93,77 @@ function UI:layout()
 
   local total_width = math.max(resolve_dimension(win.width, vim.o.columns), 20)
   local total_height = math.max(resolve_dimension(win.height, vim.o.lines), 5)
-  local results_height = math.max(total_height - 1 - 2 * pad, 1)
+  local max_results = math.max(total_height - 1 - 2 * pad, 1)
   local col = math.max(math.floor((vim.o.columns - total_width - pad) / 2), 0)
   local row = math.max(math.floor((vim.o.lines - total_height) / 2), 0)
 
-  local prompt_row, results_row
-  if win.input_position == "bottom" then
-    results_row = row
-    prompt_row = row + results_height + pad
-  else
-    prompt_row = row
-    results_row = row + 1 + pad
-  end
-
   return {
     border = border,
+    pad = pad,
     width = total_width,
-    results_height = results_height,
-    prompt = { row = prompt_row, col = col },
-    results = { row = results_row, col = col },
+    col = col,
+    base_row = row,
+    max_results = max_results,
   }
+end
+
+-- Window rows for a given result-window height. The prompt stays anchored
+-- (at the top, or at the bottom of the full-height envelope) so it does not
+-- move as the result window grows or shrinks toward it.
+function UI:_geometry(layout, results_height)
+  local prompt_row, results_row
+  if self.config.window.input_position == "bottom" then
+    prompt_row = layout.base_row + layout.max_results + layout.pad
+    results_row = prompt_row - layout.pad - results_height
+  else
+    prompt_row = layout.base_row
+    results_row = layout.base_row + 1 + layout.pad
+  end
+  return {
+    prompt = { row = prompt_row, col = layout.col },
+    results = { row = results_row, col = layout.col },
+  }
+end
+
+-- Resize the result window to fit `count` matches, capped at the configured
+-- height and floored at one line. Only reconfigures when the height actually
+-- changes, to avoid per-keystroke flicker.
+function UI:_fit(count)
+  local layout = self.layout
+  local desired = math.max(math.min(count, layout.max_results), 1)
+  if desired == self.results_height then
+    return
+  end
+  self.results_height = desired
+  local geo = self:_geometry(layout, desired)
+  vim.api.nvim_win_set_config(self.results_win, {
+    relative = "editor",
+    row = geo.results.row,
+    col = geo.results.col,
+    width = layout.width,
+    height = desired,
+    border = layout.border,
+    title = self.session.source.name,
+  })
 end
 
 function UI:open()
   local layout = self:layout()
+  self.layout = layout
+  -- Open at full height; render shrinks the result window to fit once matches
+  -- are known, avoiding a grow-from-tiny flash while a source is still loading.
+  self.results_height = layout.max_results
+  local geo = self:_geometry(layout, self.results_height)
   self.prev_win = vim.api.nvim_get_current_win()
 
   self.results_buf = vim.api.nvim_create_buf(false, true)
   vim.bo[self.results_buf].bufhidden = "wipe"
   self.results_win = vim.api.nvim_open_win(self.results_buf, false, {
     relative = "editor",
-    row = layout.results.row,
-    col = layout.results.col,
+    row = geo.results.row,
+    col = geo.results.col,
     width = layout.width,
-    height = layout.results_height,
+    height = self.results_height,
     border = layout.border,
     style = "minimal",
     focusable = false,
@@ -137,8 +177,8 @@ function UI:open()
   vim.bo[self.prompt_buf].bufhidden = "wipe"
   self.prompt_win = vim.api.nvim_open_win(self.prompt_buf, true, {
     relative = "editor",
-    row = layout.prompt.row,
-    col = layout.prompt.col,
+    row = geo.prompt.row,
+    col = geo.prompt.col,
     width = layout.width,
     height = 1,
     border = layout.border,
@@ -222,6 +262,9 @@ function UI:render()
 
   local session = self.session
   local matches = session.matches
+  if self.config.window.shrink then
+    self:_fit(#matches)
+  end
   local height = vim.api.nvim_win_get_height(self.results_win)
   local active = session:active_index()
 

@@ -26,6 +26,10 @@ local function result_lines()
   return vim.api.nvim_buf_get_lines(buf, 0, -1, false)
 end
 
+local function result_height()
+  return vim.api.nvim_win_get_height(results_win())
+end
+
 local function set_prompt(text)
   vim.api.nvim_buf_set_lines(vim.api.nvim_get_current_buf(), 0, -1, false, { text })
 end
@@ -150,6 +154,66 @@ t.describe("ui", function()
       return session.query == "nomatch"
     end)
     t.eq({ "" }, result_lines())
+    session:close()
+  end)
+
+  t.it("shrinks the result window to fit matches when window.shrink is set", function()
+    local session = open_static({
+      { id = 1, text = "alpha" },
+      { id = 2, text = "beta" },
+      { id = 3, text = "gamma" },
+      { id = 4, text = "delta" },
+      { id = 5, text = "epsilon" },
+    }, { window = { shrink = true, height = 8 } })
+    -- height 8, rounded border (2 rows of padding): max result rows = 8 - 1 - 4 = 3.
+    t.eq(3, result_height())
+    -- The result window keeps its border across resizes.
+    t.ok(type(vim.api.nvim_win_get_config(results_win()).border) == "table", "border kept")
+
+    set_prompt("alpha")
+    t.wait(function()
+      return session.query == "alpha"
+    end)
+    t.eq(1, result_height())
+
+    set_prompt("zzz")
+    t.wait(function()
+      return session.query == "zzz"
+    end)
+    t.eq(1, result_height())
+
+    set_prompt("")
+    t.wait(function()
+      return session.query == ""
+    end)
+    t.eq(3, result_height())
+    session:close()
+  end)
+
+  t.it("keeps the prompt anchored when shrinking with bottom input", function()
+    local session = open_static({
+      { id = 1, text = "alpha" },
+      { id = 2, text = "beta" },
+      { id = 3, text = "gamma" },
+    }, { window = { shrink = true, height = 8, input_position = "bottom" } })
+    local prompt_win = vim.api.nvim_get_current_win()
+    local prompt_row = vim.api.nvim_win_get_config(prompt_win).row
+    local results_row = vim.api.nvim_win_get_config(results_win()).row
+
+    set_prompt("alpha")
+    t.wait(function()
+      return session.query == "alpha"
+    end)
+    t.eq(1, result_height())
+    -- The prompt stays put; the result window's top edge drops toward it.
+    t.eq(prompt_row, vim.api.nvim_win_get_config(prompt_win).row)
+    t.ok(vim.api.nvim_win_get_config(results_win()).row > results_row, "results moved down")
+    session:close()
+  end)
+
+  t.it("keeps the full height when window.shrink is unset", function()
+    local session = open_static({ { id = 1, text = "one" } }, { window = { height = 8 } })
+    t.eq(3, result_height())
     session:close()
   end)
 
