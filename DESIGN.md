@@ -463,6 +463,7 @@ picky.setup({
     border = "single",
     width = 0.7,
     height = 0.8,
+    shrink = false,
     input_position = "top",
   },
   keymaps = {
@@ -489,6 +490,13 @@ picky.setup({
 `debounce` delays restarting a live source after a keystroke. `match_batch`
 caps how many items a local (non-live) source matches per event-loop slice; see
 [Incremental Matching](#incremental-matching).
+
+`window.height` (a fraction of the editor or an absolute row count) sizes the
+result window. With `window.shrink`, that height becomes a maximum: the result
+window grows and shrinks to fit the number of matches, down to a single line.
+The box stays centered at its full height, and the prompt stays anchored (at the
+top, or — for `input_position = "bottom"` — at the bottom of that envelope), so
+only the result window's free edge moves as matches narrow.
 
 Per-picker options override global options:
 
