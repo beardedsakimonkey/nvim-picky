@@ -8,5 +8,6 @@ return {
   buffers = require("picky.sources.buffers"),
   oldfiles = require("picky.sources.oldfiles"),
   grep = require("picky.sources.grep"),
+  symbols = require("picky.sources.symbols"),
   help = require("picky.sources.help"),
 }

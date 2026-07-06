@@ -94,10 +94,19 @@ picky.open({
 -- Help tags, or live text search through runtime documentation.
 picky.open({ source = picky.sources.help() })
 picky.open({ source = picky.sources.help({ live = true }) })
+
+-- LSP symbols: document symbols for the current buffer, or a live
+-- workspace-wide search that re-queries the server on each keystroke.
+picky.open({ source = picky.sources.symbols() })
+picky.open({ source = picky.sources.symbols({ workspace = true }) })
 ```
 
 `grep()` accepts additional `rg` arguments through `args` and `executable` to
 override the command name.
+
+`symbols()` also accepts `kinds` (SymbolKind names to keep, e.g.
+`{ "Function", "Method" }`), `bufnr` to pick a buffer other than the current
+one, and `debounce` for the workspace mode's re-query delay.
 
 ## Icons
 
@@ -277,6 +286,7 @@ vim.api.nvim_set_hl(0, "PickyDir", { link = "NonText" })
 | `PickyBorder`   | `FloatBorder` | result/prompt window border           |
 | `PickyMatch`    | `Special`     | matched characters                    |
 | `PickyDir`      | `Comment`     | directory and path context            |
+| `PickyKind`     | `Type`        | symbol kind labels                    |
 | `PickySelected` | `Visual`      | multi-selected rows                   |
 | `PickyPrompt`   | `Comment`     | the `>` prompt symbol                 |
 | `PickyCounter`  | `Comment`     | the `n/total` counter                 |

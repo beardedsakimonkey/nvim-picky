@@ -11,6 +11,7 @@ M.links = {
   PickyNormal = "NormalFloat", -- result/prompt window text and background
   PickyBorder = "FloatBorder", -- result/prompt window border
   PickyDir = "Comment", -- dimmed directory / path context
+  PickyKind = "Type", -- symbol kind labels
 }
 
 ---Register the default links. Exposed for testing.

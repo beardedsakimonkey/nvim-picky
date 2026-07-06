@@ -1,4 +1,4 @@
----@diagnostic disable: missing-fields, need-check-nil, missing-parameter
+---@diagnostic disable: missing-fields, need-check-nil, missing-parameter, duplicate-set-field
 local t = require("helpers")
 local sources = require("picky.sources")
 
@@ -266,6 +266,214 @@ t.describe("sources.oldfiles", function()
 
     vim.fn.delete(exists_a)
     vim.fn.delete(exists_b)
+  end)
+end)
+
+t.describe("sources.symbols", function()
+  local function with_clients(clients, fn)
+    local saved = vim.lsp.get_clients
+    vim.lsp.get_clients = function()
+      return clients
+    end
+    local ok, err = pcall(fn)
+    vim.lsp.get_clients = saved
+    if not ok then
+      error(err, 0)
+    end
+  end
+
+  ---A fake client whose request() records the call and answers synchronously
+  ---(with `result`, an `error`, or never when `hang`).
+  local function fake_client(opts)
+    opts = opts or {}
+    local client = {
+      id = opts.id or 1,
+      name = opts.name or "fake",
+      offset_encoding = opts.encoding or "utf-16",
+      requests = {},
+      cancelled = {},
+    }
+    function client:request(method, params, handler)
+      self.requests[#self.requests + 1] = { method = method, params = params }
+      if opts.error then
+        handler({ message = opts.error }, nil)
+      elseif not opts.hang then
+        handler(nil, opts.result or {})
+      end
+      return true, #self.requests
+    end
+    function client:cancel_request(id)
+      self.cancelled[#self.cancelled + 1] = id
+    end
+    return client
+  end
+
+  local function scratch(lines)
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+    return buf
+  end
+
+  local function range(lnum, col)
+    return { start = { line = lnum, character = col }, ["end"] = { line = lnum, character = col } }
+  end
+
+  t.it("flattens hierarchical document symbols with containers", function()
+    local buf = scratch({ "class Shape:", "  def area(self):", "    pass", "", "def main():" })
+    local client = fake_client({
+      result = {
+        {
+          name = "Shape",
+          kind = 5, -- Class
+          range = range(0, 0),
+          selectionRange = range(0, 6),
+          children = { { name = "area", kind = 6, range = range(1, 2), selectionRange = range(1, 6) } },
+        },
+        { name = "main", kind = 12, range = range(4, 0), selectionRange = range(4, 4) },
+      },
+    })
+    with_clients({ client }, function()
+      local source = sources.symbols({ bufnr = buf })
+      t.eq("once", source.refresh)
+      local result = run_source(source)
+      t.eq(true, result.finished)
+      t.eq(nil, result.error)
+      t.eq("textDocument/documentSymbol", client.requests[1].method)
+      t.eq(3, #result.items)
+      local shape, area, main = result.items[1], result.items[2], result.items[3]
+      t.eq({ "Shape", "Class", nil, buf, 1, 7 }, { shape.text, shape.kind, shape.container, shape.bufnr, shape.lnum, shape.col })
+      t.eq({ "area", "Method", "Shape", 2, 7 }, { area.text, area.kind, area.container, area.lnum, area.col })
+      t.eq({ "main", "Function", 5, 5 }, { main.text, main.kind, main.lnum, main.col })
+    end)
+    vim.api.nvim_buf_delete(buf, { force = true })
+  end)
+
+  t.it("maps SymbolInformation locations to path items", function()
+    local buf = scratch({ "" })
+    local client = fake_client({
+      result = {
+        {
+          name = "answer",
+          kind = 13, -- Variable
+          containerName = "config",
+          location = { uri = "file:///tmp/x.lua", range = range(9, 4) },
+        },
+      },
+    })
+    with_clients({ client }, function()
+      local result = run_source(sources.symbols({ bufnr = buf }))
+      local item = result.items[1]
+      t.eq({ "/tmp/x.lua", 10, 5, "config" }, { item.path, item.lnum, item.col, item.container })
+      t.eq(nil, item.bufnr)
+    end)
+    vim.api.nvim_buf_delete(buf, { force = true })
+  end)
+
+  t.it("converts utf-16 symbol columns to byte columns", function()
+    local buf = scratch({ "éé foo = 1" })
+    local client = fake_client({
+      result = { { name = "foo", kind = 13, range = range(0, 3), selectionRange = range(0, 3) } },
+    })
+    with_clients({ client }, function()
+      local result = run_source(sources.symbols({ bufnr = buf }))
+      -- character 3 (utf-16) lands after the two 2-byte é's and the space.
+      t.eq(6, result.items[1].col)
+    end)
+    vim.api.nvim_buf_delete(buf, { force = true })
+  end)
+
+  t.it("sends the query in workspace mode and emits path items", function()
+    local cwd = assert(vim.uv.cwd())
+    local client = fake_client({
+      result = {
+        {
+          name = "needle_fn",
+          kind = 12,
+          location = { uri = vim.uri_from_fname(vim.fs.joinpath(cwd, "lua/a.lua")), range = range(3, 8) },
+        },
+      },
+    })
+    with_clients({ client }, function()
+      local source = sources.symbols({ workspace = true })
+      t.eq("query", source.refresh)
+      local result = run_source(source, { query = "needle" })
+      t.eq("workspace/symbol", client.requests[1].method)
+      t.eq({ query = "needle" }, client.requests[1].params)
+      local item = result.items[1]
+      t.eq({ vim.fs.joinpath(cwd, "lua/a.lua"), "lua/a.lua", 4, 9 }, { item.path, item.rel, item.lnum, item.col })
+    end)
+  end)
+
+  t.it("skips empty workspace queries without a request", function()
+    local client = fake_client()
+    with_clients({ client }, function()
+      local result = run_source(sources.symbols({ workspace = true }), { query = "" })
+      t.eq(true, result.finished)
+      t.eq({}, result.items)
+      t.eq({}, client.requests)
+    end)
+  end)
+
+  t.it("reports missing clients as a source error", function()
+    with_clients({}, function()
+      local result = run_source(sources.symbols())
+      t.eq(true, result.finished)
+      t.ok(result.error ~= nil, "expected a no-client error")
+    end)
+  end)
+
+  t.it("succeeds when one of several clients fails, errors when all do", function()
+    local buf = scratch({ "" })
+    local good = fake_client({
+      id = 1,
+      result = { { name = "ok_fn", kind = 12, range = range(0, 0), selectionRange = range(0, 0) } },
+    })
+    local bad = fake_client({ id = 2, name = "broken", error = "boom" })
+    with_clients({ good, bad }, function()
+      local result = run_source(sources.symbols({ bufnr = buf }))
+      t.eq(nil, result.error)
+      t.eq("ok_fn", result.items[1].text)
+    end)
+    local bad2 = fake_client({ id = 3, name = "worse", error = "bang" })
+    with_clients({ bad, bad2 }, function()
+      local result = run_source(sources.symbols({ bufnr = buf }))
+      t.ok(result.error:find("broken: boom", 1, true) and result.error:find("worse: bang", 1, true), result.error)
+    end)
+    vim.api.nvim_buf_delete(buf, { force = true })
+  end)
+
+  t.it("cancels in-flight requests on stop", function()
+    local buf = scratch({ "" })
+    local client = fake_client({ hang = true })
+    with_clients({ client }, function()
+      local source = sources.symbols({ bufnr = buf })
+      local result = run_source(source)
+      t.eq(false, result.finished)
+      source:stop()
+      t.eq({ 1 }, client.cancelled)
+    end)
+    vim.api.nvim_buf_delete(buf, { force = true })
+  end)
+
+  t.it("filters by kind but keeps children of dropped symbols", function()
+    local buf = scratch({ "class Shape:", "  def area(self):" })
+    local client = fake_client({
+      result = {
+        {
+          name = "Shape",
+          kind = 5,
+          range = range(0, 0),
+          selectionRange = range(0, 6),
+          children = { { name = "area", kind = 6, range = range(1, 2), selectionRange = range(1, 6) } },
+        },
+      },
+    })
+    with_clients({ client }, function()
+      local result = run_source(sources.symbols({ bufnr = buf, kinds = { "Method" } }))
+      t.eq(1, #result.items)
+      t.eq("area", result.items[1].text)
+    end)
+    vim.api.nvim_buf_delete(buf, { force = true })
   end)
 end)
 
