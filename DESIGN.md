@@ -268,6 +268,15 @@ are ASCII-oriented; non-ASCII characters are compared byte-for-byte. If a term
 matches multiple fields with the same score, the first field named in `fields`
 wins.
 
+Matching is bounded in the field length. Unanchored terms (fuzzy, exact, and
+inverse) scan only the leading `MAX_MATCH_BYTES` of a field, so a minified
+bundle's megabyte-long line costs no more to match than a normal one — folding
+and scanning a megabyte string on every keystroke would otherwise stall the
+matcher. A match that begins past the window is simply not found, the price of
+keeping pathological lines in the list at all. Anchored terms (prefix, suffix,
+whole-field) read only a fixed slice or a length, so they stay exact regardless
+of field size and ignore the window.
+
 ## Sources
 
 A source owns item production and refresh behavior. The picker should not know

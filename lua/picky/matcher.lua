@@ -4,6 +4,11 @@
 ---match different fields. Positions are 1-based byte offsets at the start of
 ---matched UTF-8 characters. Case folding is ASCII-oriented; non-ASCII bytes
 ---are compared literally.
+---
+---Fuzzy, exact, and inverse terms scan only the leading `MAX_MATCH_BYTES` of a
+---field, so a pathologically long line (a minified bundle's megabyte row) costs
+---no more than a normal one; anchored terms (prefix/suffix/full) read a fixed
+---slice and stay exact regardless of field size.
 
 ---@class PickyMatch
 ---@field index number index into the session's item array
@@ -24,8 +29,26 @@ local CONSECUTIVE = 8
 local BOUNDARY = 10
 local GAP = 1
 
+-- Largest field prefix an unanchored term (fuzzy/exact/inverse) will scan. A
+-- minified bundle can put a megabyte-long line on screen, and folding plus
+-- scanning it on every keystroke stalls the matcher; bounding the window keeps
+-- per-item cost flat in the field length. A match past the window is not found
+-- -- the price of keeping pathological lines in the list at all. Anchored kinds
+-- (prefix/suffix/full) inspect only a short slice or a length, so they stay
+-- exact regardless of field size and ignore this cap.
+local MAX_MATCH_BYTES = 4096
+
 local function fold(s)
   return s:lower()
+end
+
+---The slice of a field an unanchored term scans: the whole value, or its
+---leading `MAX_MATCH_BYTES` bytes when it is larger.
+local function window(value)
+  if #value <= MAX_MATCH_BYTES then
+    return value
+  end
+  return value:sub(1, MAX_MATCH_BYTES)
 end
 
 ---True when the byte before a match position is a word boundary.
@@ -59,9 +82,38 @@ end
 ---@return number? score
 ---@return number[]? positions
 local function match_term(value, term)
-  local hay = term.case_sensitive and value or fold(value)
-  local needle = term.case_sensitive and term.text or fold(term.text)
-  local slack = (#hay - #needle) * 0.01
+  local cs = term.case_sensitive
+  local needle = cs and term.text or fold(term.text)
+  -- Slack uses the true field length so a longer field still ranks lower, even
+  -- though the search itself only ever folds a bounded slice of it.
+  local slack = (#value - #needle) * 0.01
+
+  -- Anchored kinds read a fixed slice or just a length, never the whole field,
+  -- so they stay exact and cheap no matter how long the value is.
+  if term.kind == "prefix" then
+    local head = value:sub(1, #needle)
+    if (cs and head or fold(head)) ~= needle then
+      return nil
+    end
+    return 30 - slack, char_positions(value, 1, #needle)
+  elseif term.kind == "suffix" then
+    local tail = value:sub(-#needle)
+    if #value < #needle or (cs and tail or fold(tail)) ~= needle then
+      return nil
+    end
+    local s = #value - #needle + 1
+    return 25 - slack, char_positions(value, s, #value)
+  elseif term.kind == "full" then
+    if #value ~= #needle or (cs and value or fold(value)) ~= needle then
+      return nil
+    end
+    return 40, char_positions(value, 1, #value)
+  end
+
+  -- Fuzzy and exact scan the value, so they only ever look at the bounded
+  -- window; positions still index the original value, which the window prefixes.
+  local win = window(value)
+  local hay = cs and win or fold(win)
 
   if term.kind == "exact" then
     local s = hay:find(needle, 1, true)
@@ -70,22 +122,6 @@ local function match_term(value, term)
     end
     local score = 20 + (at_boundary(hay:byte(s - 1)) and 10 or 0) - slack
     return score, char_positions(value, s, s + #needle - 1)
-  elseif term.kind == "prefix" then
-    if hay:sub(1, #needle) ~= needle then
-      return nil
-    end
-    return 30 - slack, char_positions(value, 1, #needle)
-  elseif term.kind == "suffix" then
-    if #hay < #needle or hay:sub(-#needle) ~= needle then
-      return nil
-    end
-    local s = #hay - #needle + 1
-    return 25 - slack, char_positions(value, s, #hay)
-  elseif term.kind == "full" then
-    if hay ~= needle then
-      return nil
-    end
-    return 40, char_positions(value, 1, #hay)
   end
 
   -- Fuzzy: greedy leftmost ordered subsequence. Greedy never misses an
@@ -148,7 +184,8 @@ function M.match_item(item, terms, index)
       for _, field in ipairs(fields) do
         local value = item[field]
         if type(value) == "string" then
-          local hay = term.case_sensitive and value or fold(value)
+          local hay = window(value)
+          hay = term.case_sensitive and hay or fold(hay)
           if hay:find(needle, 1, true) then
             return nil
           end

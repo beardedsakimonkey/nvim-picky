@@ -138,4 +138,34 @@ t.describe("matcher", function()
     -- but an inverse-only query keeps them
     t.eq(1, #match(items, "!foo"))
   end)
+
+  t.it("matches inside a megabyte line without scanning it whole", function()
+    -- A minified bundle's row: matching must stay bounded, not fold a megabyte
+    -- per keystroke. The target sits inside the search window at the front.
+    local long = "needle" .. string.rep("x", 2 * 1024 * 1024)
+    local items = { { text = long } }
+    t.eq(1, #match(items, "'needle"))
+    t.eq({ 1, 2, 3, 4, 5, 6 }, match(items, "'needle")[1].positions.text)
+  end)
+
+  t.it("does not find unanchored matches past the search window", function()
+    -- 4096-byte window: a target that begins beyond it is invisible to fuzzy
+    -- and exact terms (the cost of keeping pathological lines in the list).
+    local items = { { text = string.rep("a", 4096) .. "zzz" } }
+    t.eq({}, match(items, "'zzz"))
+    t.eq({}, match(items, "zzz"))
+  end)
+
+  t.it("anchors suffixes against the true tail of a long line", function()
+    -- Anchored kinds read a fixed slice, so they stay exact past the window.
+    local items = { { text = string.rep("x", 8192) .. ".lua" } }
+    t.eq(1, #match(items, ".lua$"))
+    t.eq({}, match(items, ".rs$"))
+  end)
+
+  t.it("anchors prefixes against the head of a long line", function()
+    local items = { { text = "foo" .. string.rep("x", 8192) } }
+    t.eq(1, #match(items, "^foo"))
+    t.eq({}, match(items, "^bar"))
+  end)
 end)
