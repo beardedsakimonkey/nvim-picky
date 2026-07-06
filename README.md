@@ -5,7 +5,6 @@ A small, dependency-free picker for Neovim built around structured items.
 ## Requirements
 
 - Neovim 0.12 or newer
-- [`fd`](https://github.com/sharkdp/fd) for `picky.sources.files()`
 - [`ripgrep`](https://github.com/BurntSushi/ripgrep) for
   `picky.sources.grep()` and live help search
 - [`nvim-web-devicons`](https://github.com/nvim-tree/nvim-web-devicons)
@@ -63,18 +62,21 @@ picky.open({ source = picky.sources.buffers() })
 -- Existing files from vim.v.oldfiles.
 picky.open({ source = picky.sources.oldfiles({ limit = 100 }) })
 
--- Files below cwd. fd lists the whole tree once; picky filters and ranks
--- locally, so frecency (see below) and fuzzy matching order the results
--- together. Matching runs incrementally and is interrupted on each keystroke,
--- so even a large tree stays responsive (see Design: Incremental Matching).
--- `limit` is an optional safety cap on how many paths are loaded -- leave it
--- unset so matching sees every file; set it only to bound memory on enormous
--- trees.
+-- Files below cwd. A built-in libuv scanner lists the whole tree once (no
+-- external tool); picky filters and ranks locally, so frecency (see below)
+-- and fuzzy matching order the results together. Matching runs incrementally
+-- and is interrupted on each keystroke, so even a large tree stays responsive
+-- (see Design: Incremental Matching). `ignore` takes glob patterns: a pattern
+-- without `/` prunes matching names anywhere in the tree, one with `/` matches
+-- cwd-relative paths. `limit` is an optional safety cap on how many paths are
+-- loaded -- leave it unset so matching sees every file; set it only to bound
+-- memory on enormous trees.
 picky.open({
   source = picky.sources.files({
     cwd = vim.fn.getcwd(),
     hidden = false,
     follow = false,
+    ignore = { ".git", "node_modules" },
   }),
 })
 
@@ -94,9 +96,8 @@ picky.open({ source = picky.sources.help() })
 picky.open({ source = picky.sources.help({ live = true }) })
 ```
 
-`files()` accepts additional `fd` arguments through `args`. `grep()` accepts
-additional `rg` arguments through `args`. Both accept `executable` to override
-the command name.
+`grep()` accepts additional `rg` arguments through `args` and `executable` to
+override the command name.
 
 ## Icons
 

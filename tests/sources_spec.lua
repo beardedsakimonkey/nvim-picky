@@ -120,29 +120,59 @@ t.describe("sources.command", function()
 end)
 
 t.describe("sources.files", function()
-  t.it("builds the fd argument array", function()
-    local source = sources.files({ colors = false, hidden = true, follow = true, limit = 10, args = { "--extra" } })
-    local cmd = source._opts.command({ query = "", cwd = "." })
-    t.eq({ "fd", "--color=never", "--type=file", "--hidden", "--follow", "--max-results=10", "--extra" }, cmd)
-    t.eq("once", source.refresh)
+  local function tree(paths)
+    local template = vim.fs.joinpath(assert(vim.uv.os_tmpdir()), "picky-files-XXXXXX")
+    local root = assert(vim.uv.fs_mkdtemp(template))
+    for _, rel in ipairs(paths) do
+      vim.fn.mkdir(vim.fs.dirname(vim.fs.joinpath(root, rel)), "p")
+      assert(io.open(vim.fs.joinpath(root, rel), "w")):close()
+    end
+    return root
+  end
+
+  local function paths_of(items)
+    local paths = vim.tbl_map(function(item)
+      return item.path
+    end, items)
+    table.sort(paths)
+    return paths
+  end
+
+  t.it("scans the tree into file items", function()
+    local root = tree({ "a.lua", "sub/b.lua" })
+    local result = run_source(sources.files(), { cwd = root })
+    wait_finished(result)
+    t.eq(nil, result.error)
+    t.eq({ vim.fs.joinpath(root, "a.lua"), vim.fs.joinpath(root, "sub/b.lua") }, paths_of(result.items))
+    for _, item in ipairs(result.items) do
+      t.eq(item.path, item.id)
+      t.eq("string", type(item.name))
+      t.ok(vim.tbl_contains(item.fields, "name"), "expected file_item fields")
+    end
+  end)
+
+  t.it("passes hidden and ignore through to the scanner", function()
+    local root = tree({ "keep.txt", ".dot.txt", "vendor/x.js" })
+    local default = run_source(sources.files(), { cwd = root })
+    wait_finished(default)
+    t.eq({ vim.fs.joinpath(root, "keep.txt"), vim.fs.joinpath(root, "vendor/x.js") }, paths_of(default.items))
+    local tuned = run_source(sources.files({ hidden = true, ignore = { "vendor" } }), { cwd = root })
+    wait_finished(tuned)
+    t.eq({ vim.fs.joinpath(root, ".dot.txt"), vim.fs.joinpath(root, "keep.txt") }, paths_of(tuned.items))
+  end)
+
+  t.it("reports an unreadable root as a source error", function()
+    local result = run_source(sources.files(), { cwd = "/picky-no-such-root" })
+    wait_finished(result)
+    t.ok(result.error ~= nil, "expected a scan error")
   end)
 
   t.it("runs once and attaches a frecency bonus", function()
-    local source = sources.files({ colors = false })
+    local source = sources.files()
     t.eq("once", source.refresh)
     t.eq("function", type(source.bonus))
-    local without = sources.files({ colors = false, frecency = false })
+    local without = sources.files({ frecency = false })
     t.eq(nil, without.bonus)
-  end)
-
-  t.it("colorizes output by default, keeping the relative text but absolute path", function()
-    local source = sources.files()
-    local cmd = source._opts.command({ query = "", cwd = "." })
-    t.eq("--color=always", cmd[2])
-    local item = assert(source._opts.parse("\27[1;34m" .. "lua" .. "\27[0m/init.lua", { cwd = "/work" }))
-    t.eq("lua/init.lua", item.text)
-    t.eq("/work/lua/init.lua", item.path)
-    t.eq({ from = 0, to = 3, hl = item.highlights[1].hl }, item.highlights[1])
   end)
 end)
 

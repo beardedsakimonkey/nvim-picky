@@ -1,74 +1,63 @@
----File source backed by fd, run once. fd lists the tree; picky filters and
----ranks locally, which lets frecency contribute to the order (and, on an empty
----query, drive it). Paths render relative to the cwd but carry their absolute
----form for opening and frecency lookups.
+---File source backed by picky's own libuv scanner, run once. The scanner
+---lists the tree; picky filters and ranks locally, which lets frecency
+---contribute to the order (and, on an empty query, drive it). Items render
+---as `filename dir` via parsers.file_item and carry the absolute path for
+---opening and frecency lookups.
 
-local command = require("picky.sources.command")
-
----Absolute, normalized path for an fd line relative to the search cwd.
----@param line string
----@param cwd string?
----@return string
-local function absolute(line, cwd)
-  return vim.fs.normalize(vim.fs.joinpath(cwd or assert(vim.uv.cwd()), line))
-end
+local parsers = require("picky.parsers")
+local scanner = require("picky.scanner")
 
 ---@class PickyFilesOpts
 ---@field cwd string?
----@field hidden boolean?
----@field follow boolean?
+---@field hidden boolean? include dotfiles (default false)
+---@field follow boolean? follow symlinks (default false)
 ---@field limit number? safety cap on paths loaded; unset means load every file so local matching is exhaustive
----@field args string[]? extra fd arguments
----@field executable string? defaults to "fd"
----@field colors boolean? show fd's coloring in the result window (default true)
+---@field ignore string[]? glob patterns to skip; matching directories are pruned (default { ".git", "node_modules" })
 ---@field frecency boolean? rank by frecency (default true)
 
 ---@param opts PickyFilesOpts?
----@return PickyCommandSource
+---@return PickySource
 return function(opts)
   opts = opts or {}
-  local colors = opts.colors ~= false
-  local source = command({
+  local handle
+  local source = {
     name = "Files",
     cwd = opts.cwd,
     refresh = "once",
-    command = function()
-      local cmd = { opts.executable or "fd", colors and "--color=always" or "--color=never", "--type=file" }
-      if opts.hidden then
-        cmd[#cmd + 1] = "--hidden"
-      end
-      if opts.follow then
-        cmd[#cmd + 1] = "--follow"
-      end
-      if opts.limit then
-        cmd[#cmd + 1] = "--max-results=" .. opts.limit
-      end
-      vim.list_extend(cmd, opts.args or {})
-      return cmd
-    end,
-    -- With colors on, fd's LS_COLORS output already conveys structure, so the
-    -- relative path stays one searchable text field carrying ANSI highlights;
-    -- `path` holds the absolute form for opening and frecency.
-    parse = colors and function(line, ctx)
-      if line == "" then
-        return nil
-      end
-      local text, highlights = require("picky.ansi").parse(line)
-      if text == "" then
-        return nil
-      end
-      local path = absolute(text, ctx and ctx.cwd)
-      local item = { id = path, text = text, path = path, highlights = highlights }
-      return require("picky.icons").annotate(item, text)
-    end or function(line, ctx)
-      if line == "" then
-        return nil
-      end
-      local path = absolute(line, ctx and ctx.cwd)
-      local item = { id = path, text = line, path = path }
-      return require("picky.icons").annotate(item, line)
-    end,
-  })
+  }
+
+  function source:start(ctx)
+    local root = vim.fs.normalize(ctx.cwd)
+    handle = scanner.scan({
+      cwd = root,
+      hidden = opts.hidden,
+      follow = opts.follow,
+      limit = opts.limit,
+      ignore = opts.ignore,
+      on_paths = function(paths)
+        local items = {}
+        for i, rel in ipairs(paths) do
+          local path = vim.fs.joinpath(root, rel)
+          local item = parsers.file_item(path)
+          item.id = path
+          items[i] = item
+        end
+        ctx.emit(items)
+      end,
+      on_done = function(err)
+        handle = nil
+        ctx.finish(err)
+      end,
+    })
+  end
+
+  function source:stop()
+    if handle then
+      handle.cancel()
+      handle = nil
+    end
+  end
+
   if opts.frecency ~= false then
     source.bonus = require("picky.frecency").bonus
   end

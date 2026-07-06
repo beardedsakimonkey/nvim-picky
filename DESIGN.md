@@ -379,10 +379,14 @@ parser, and item constructors.
 text search over runtime documentation and still emits items with `tag`, allowing
 normal actions to open the corresponding help document.
 
-`files()` is a static source: `fd` lists the tree once and the matcher filters
-and ranks locally. This keeps ranking in one place — the matcher — so frecency
-can contribute to the order alongside fuzzy scoring (a live source, which
-delegates filtering to the command and emits unscored items, cannot).
+`files()` is a static source: a built-in libuv scanner (`picky.scanner`) lists
+the tree once — no external tool — and the matcher filters and ranks locally.
+This keeps ranking in one place — the matcher — so frecency can contribute to
+the order alongside fuzzy scoring (a live source, which delegates filtering to
+the command and emits unscored items, cannot). The scanner prunes entries
+matching a small glob list (default `{ ".git" }`) rather than parsing
+`.gitignore`; ignore fidelity is traded for zero dependencies and a predictable
+rule set.
 
 ### Frecency
 
