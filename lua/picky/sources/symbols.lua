@@ -183,11 +183,6 @@ return function(opts)
 
   function source:start(ctx)
     cancels = {}
-    -- Servers treat an empty workspace query as "everything"; skip it.
-    if workspace and ctx.query == "" then
-      ctx.finish()
-      return
-    end
     local clients = vim.lsp.get_clients({ bufnr = bufnr, method = method })
     if workspace and #clients == 0 then
       -- Any attached client can answer a workspace-wide query.

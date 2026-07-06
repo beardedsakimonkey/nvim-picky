@@ -437,13 +437,23 @@ t.describe("sources.symbols", function()
     end)
   end)
 
-  t.it("skips empty workspace queries without a request", function()
-    local client = fake_client()
+  t.it("sends empty workspace queries", function()
+    local cwd = assert(vim.uv.cwd())
+    local client = fake_client({
+      result = {
+        {
+          name = "initial_fn",
+          kind = 12,
+          location = { uri = vim.uri_from_fname(vim.fs.joinpath(cwd, "lua/initial.lua")), range = range(1, 2) },
+        },
+      },
+    })
     with_clients({ client }, function()
       local result = run_source(sources.symbols({ workspace = true }), { query = "" })
       t.eq(true, result.finished)
-      t.eq({}, result.items)
-      t.eq({}, client.requests)
+      t.eq("workspace/symbol", client.requests[1].method)
+      t.eq({ query = "" }, client.requests[1].params)
+      t.eq("initial_fn", result.items[1].text)
     end)
   end)
 
