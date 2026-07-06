@@ -1,5 +1,6 @@
 ---@diagnostic disable: missing-fields, need-check-nil, missing-parameter, duplicate-set-field
 local t = require("helpers")
+local config = require("picky.config")
 local sources = require("picky.sources")
 
 ---Drive a source manually and collect its output.
@@ -270,6 +271,16 @@ t.describe("sources.oldfiles", function()
 end)
 
 t.describe("sources.symbols", function()
+  local function with_icons(enabled, fn)
+    local saved_icons = config.options.icons
+    config.options.icons = enabled
+    local ok, err = pcall(fn)
+    config.options.icons = saved_icons
+    if not ok then
+      error(err, 0)
+    end
+  end
+
   local function with_clients(clients, fn)
     local saved = vim.lsp.get_clients
     vim.lsp.get_clients = function()
@@ -342,8 +353,30 @@ t.describe("sources.symbols", function()
       t.eq(3, #result.items)
       local shape, area, main = result.items[1], result.items[2], result.items[3]
       t.eq({ "Shape", "Class", nil, buf, 1, 7 }, { shape.text, shape.kind, shape.container, shape.bufnr, shape.lnum, shape.col })
+      t.eq({ { field = "kind_icon", hl = "PickyKind" }, { text = " " }, { field = "text" } }, main.display)
+      t.eq("󰊕", main.kind_icon)
       t.eq({ "area", "Method", "Shape", 2, 7 }, { area.text, area.kind, area.container, area.lnum, area.col })
       t.eq({ "main", "Function", 5, 5 }, { main.text, main.kind, main.lnum, main.col })
+    end)
+    vim.api.nvim_buf_delete(buf, { force = true })
+  end)
+
+  t.it("falls back to symbol kind labels when icons are disabled", function()
+    local buf = scratch({ "local function main() end" })
+    local client = fake_client({
+      result = { { name = "main", kind = 12, range = range(0, 0), selectionRange = range(0, 15) } },
+    })
+    with_icons(false, function()
+      with_clients({ client }, function()
+        local result = run_source(sources.symbols({ bufnr = buf }))
+        local item = result.items[1]
+        t.eq("Function", item.kind)
+        t.eq({
+          { field = "kind", hl = "PickyKind" },
+          { text = "  " },
+          { field = "text" },
+        }, item.display)
+      end)
     end)
     vim.api.nvim_buf_delete(buf, { force = true })
   end)

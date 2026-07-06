@@ -29,7 +29,7 @@ local M = {}
 ---@field keymaps table<string, string> Maps keys (in the input buffer) to action names.
 ---@field debounce integer Milliseconds to wait after a keystroke before refiltering.
 ---@field match_batch integer Items matched per event-loop slice for local (non-live) sources.
----@field icons boolean Whether file-type icons are enabled when nvim-web-devicons is available.
+---@field icons boolean Whether file-type icons and symbol kind glyphs are enabled.
 ---@field frecency PickyFrecencyConfig Frecency tracking for file sources.
 
 ---@class PickyConfigOpts

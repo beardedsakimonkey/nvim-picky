@@ -113,8 +113,8 @@ one, and `debounce` for the workspace mode's re-query delay.
 When [`nvim-web-devicons`](https://github.com/nvim-tree/nvim-web-devicons) is
 installed, file-based sources (`files()`, `buffers()`, `oldfiles()`) render a
 file-type icon before each entry, colored with the plugin's own highlight
-group. Icons are a no-op when the plugin is absent. Turn them off even when the
-plugin is installed with:
+group. The symbols source renders built-in Nerd Font glyphs for LSP symbol
+kinds. Disable icons and use plain symbol kind labels with:
 
 ```lua
 picky.setup({ icons = false })
@@ -286,7 +286,7 @@ vim.api.nvim_set_hl(0, "PickyDir", { link = "NonText" })
 | `PickyBorder`   | `FloatBorder` | result/prompt window border           |
 | `PickyMatch`    | `Special`     | matched characters                    |
 | `PickyDir`      | `Comment`     | directory and path context            |
-| `PickyKind`     | `Type`        | symbol kind labels                    |
+| `PickyKind`     | `Type`        | symbol kind glyphs                    |
 | `PickySelected` | `Visual`      | multi-selected rows                   |
 | `PickyPrompt`   | `Comment`     | the `>` prompt symbol                 |
 | `PickyCounter`  | `Comment`     | the `n/total` counter                 |

@@ -4,6 +4,8 @@
 ---locally. With `workspace` the source is live: each query change re-issues
 ---a workspace/symbol request and the server does the filtering.
 
+local config = require("picky.config")
+
 ---@class PickySymbolsOpts
 ---@field workspace boolean? live workspace-wide search instead of document symbols
 ---@field bufnr number? document mode: buffer to query (default: current at creation)
@@ -14,6 +16,43 @@
 ---@return string
 local function kind_name(kind)
   return vim.lsp.protocol.SymbolKind[kind] or "Unknown"
+end
+
+local kind_icons = {
+  Text = "󰉿",
+  Method = "󰆧",
+  Function = "󰊕",
+  Constructor = "",
+  Field = "󰜢",
+  Variable = "󰀫",
+  Class = "󰠱",
+  Interface = "",
+  Module = "",
+  Property = "󰜢",
+  Unit = "󰑭",
+  Value = "󰎠",
+  Enum = "",
+  Keyword = "󰌋",
+  Snippet = "",
+  Color = "󰏘",
+  File = "󰈙",
+  Reference = "󰈇",
+  Folder = "󰉋",
+  EnumMember = "",
+  Constant = "󰏿",
+  Struct = "󰙅",
+  Event = "",
+  Operator = "󰆕",
+  TypeParameter = "󰊄",
+  Unknown = "󰈚",
+}
+
+---@return string field, string separator
+local function kind_display()
+  if config.options.icons then
+    return "kind_icon", " "
+  end
+  return "kind", "  "
 end
 
 ---1-based byte column for an LSP position in a loaded buffer.
@@ -38,15 +77,17 @@ end
 ---@param dim "container"|"rel" context field rendered dimmed after the name
 ---@return PickyItem
 local function symbol_item(client_id, name, kind, container, target, dim)
+  local kind_field, kind_separator = kind_display()
   local item = {
     id = ("%s:%s:%s:%s:%s"):format(client_id, target.path or target.bufnr, target.lnum or 0, target.col or 0, name),
     text = name,
     kind = kind,
+    kind_icon = kind_icons[kind] or kind_icons.Unknown,
     container = container,
     fields = { "text", "kind", "container" },
     display = {
-      { field = "kind", hl = "PickyKind" },
-      { text = "  " },
+      { field = kind_field, hl = "PickyKind" },
+      { text = kind_separator },
       { field = "text" },
     },
   }
