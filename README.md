@@ -7,6 +7,7 @@ A small, dependency-free picker for Neovim built around structured items.
 - Neovim 0.12 or newer
 - [`ripgrep`](https://github.com/BurntSushi/ripgrep) for
   `picky.sources.grep()` and live help search
+- `git` for `picky.sources.git_status()`
 - [`nvim-web-devicons`](https://github.com/nvim-tree/nvim-web-devicons)
   (optional) for file-type icons
 
@@ -61,6 +62,9 @@ picky.open({ source = picky.sources.buffers() })
 
 -- Existing files from vim.v.oldfiles.
 picky.open({ source = picky.sources.oldfiles({ limit = 100 }) })
+
+-- Changed files from `git status`.
+picky.open({ source = picky.sources.git_status() })
 
 -- Files below cwd. A built-in libuv scanner lists the whole tree once (no
 -- external tool); picky filters and ranks locally, so frecency (see below)

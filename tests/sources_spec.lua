@@ -229,6 +229,92 @@ t.describe("sources.grep", function()
   end)
 end)
 
+t.describe("sources.git_status", function()
+  local function fg(group)
+    local hl = vim.api.nvim_get_hl(0, { name = group })
+    return hl.fg and ("#%06x"):format(hl.fg) or nil
+  end
+
+  t.it("builds the git status argument array", function()
+    local source = sources.git_status({
+      executable = "git-test",
+      untracked = "normal",
+      ignored = true,
+      args = { "--renames" },
+    })
+    local cmd = source._opts.command({ query = "", cwd = "." })
+    t.eq({
+      "git-test",
+      "-c",
+      "status.relativePaths=true",
+      "-c",
+      "color.status=always",
+      "-c",
+      "core.quotePath=false",
+      "status",
+      "--untracked-files=normal",
+      "--ignored",
+      "--renames",
+    }, cmd)
+    t.eq("Git status", source.name)
+    t.eq("once", source.refresh)
+  end)
+
+  t.it("parses staged entries from regular colorized git status", function()
+    local source = sources.git_status()
+    source._opts.parse("Changes to be committed:")
+    local item = assert(source._opts.parse("\t\27[32mnew file:   lua/new.lua\27[m"))
+    t.eq("lua/new.lua", item.path)
+    t.eq("new file", item.status_text)
+    t.eq("changes to be committed", item.section)
+    t.eq("new file:   lua/new.lua", item.text)
+    t.eq({ "text", "path", "status_text" }, item.fields)
+    t.eq(1, #item.highlights)
+    t.eq(0, item.highlights[1].from)
+    t.eq(#item.text, item.highlights[1].to)
+    t.eq("#00cd00", fg(item.highlights[1].hl))
+  end)
+
+  t.it("parses worktree and untracked entries with git's red ANSI span", function()
+    local source = sources.git_status()
+    source._opts.parse("Changes not staged for commit:")
+    local changed = assert(source._opts.parse("\t\27[31mmodified:   lua/changed.lua\27[m"))
+    t.eq("lua/changed.lua", changed.path)
+    t.eq("modified", changed.status_text)
+    t.eq("modified:   lua/changed.lua", changed.text)
+    t.eq("#cd0000", fg(changed.highlights[1].hl))
+
+    source._opts.parse("Untracked files:")
+    local untracked = assert(source._opts.parse("\t\27[31mlua/new.lua\27[m"))
+    t.eq("lua/new.lua", untracked.path)
+    t.eq("untracked", untracked.status_text)
+    t.eq("lua/new.lua", untracked.text)
+    t.eq("#cd0000", fg(untracked.highlights[1].hl))
+
+    local weird_name = assert(source._opts.parse("\t\27[31mfoo: bar -> baz\27[m"))
+    t.eq("foo: bar -> baz", weird_name.path)
+    t.eq("untracked", weird_name.status_text)
+  end)
+
+  t.it("opens the new path for renamed entries", function()
+    local source = sources.git_status()
+    local item = assert(source._opts.parse("\t\27[32mrenamed:    lua/old.lua -> lua/new.lua\27[m"))
+    t.eq("lua/new.lua", item.path)
+    t.eq("renamed", item.status_text)
+    t.eq("renamed:    lua/old.lua -> lua/new.lua", item.path_display)
+  end)
+
+  t.it("parses ignored entries from their section and skips non-file lines", function()
+    local source = sources.git_status()
+    source._opts.parse("Ignored files:")
+    local ignored = assert(source._opts.parse("\t\27[31mbuild/out.o\27[m"))
+    t.eq("ignored", ignored.status_text)
+    t.eq("build/out.o", ignored.path)
+    t.eq(nil, source._opts.parse("not-a-status-line"))
+    t.eq(nil, source._opts.parse("  (use \"git add <file>...\" to update what will be committed)"))
+  end)
+end)
+
 t.describe("sources.buffers", function()
   t.it("lists listed buffers except the current one", function()
     local current = vim.api.nvim_get_current_buf()

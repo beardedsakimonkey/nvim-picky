@@ -6,6 +6,7 @@ return {
   command = require("picky.sources.command"),
   files = require("picky.sources.files"),
   buffers = require("picky.sources.buffers"),
+  git_status = require("picky.sources.git_status"),
   oldfiles = require("picky.sources.oldfiles"),
   grep = require("picky.sources.grep"),
   symbols = require("picky.sources.symbols"),
