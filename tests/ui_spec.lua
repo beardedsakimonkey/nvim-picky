@@ -75,6 +75,16 @@ t.describe("ui", function()
     session:close()
   end)
 
+  t.it("puts the loading ellipsis after the result count", function()
+    local source = t.fake_source()
+    local session = picky.open({ source = source })
+    source.contexts[1].emit({ { id = 1, text = "one" }, { id = 2, text = "two" } })
+    t.eq("1/2…", prompt_counter())
+    source.contexts[1].finish()
+    t.eq("1/2", prompt_counter())
+    session:close()
+  end)
+
   t.it("filters as the prompt changes", function()
     local session = open_static({
       { id = 1, text = "alpha" },

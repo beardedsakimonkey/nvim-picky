@@ -386,9 +386,6 @@ function UI:_render_counter(active, total)
   end
   local session = self.session
   local parts = {}
-  if session.loading then
-    parts[#parts + 1] = "…"
-  end
   if session.error then
     parts[#parts + 1] = "error"
   end
@@ -396,7 +393,11 @@ function UI:_render_counter(active, total)
   if selected > 0 then
     parts[#parts + 1] = ("(%s)"):format(format_count(selected))
   end
-  parts[#parts + 1] = ("%s/%s"):format(format_count(active), format_count(total))
+  local count = ("%s/%s"):format(format_count(active), format_count(total))
+  if session.loading then
+    count = count .. "…"
+  end
+  parts[#parts + 1] = count
   self.counter_extmark = vim.api.nvim_buf_set_extmark(self.prompt_buf, ns, 0, 0, {
     id = self.counter_extmark,
     virt_text = { { table.concat(parts, " "), "PickyCounter" } },
