@@ -2,6 +2,7 @@
 ---`bufnr`, `tag`, `path`, `lnum`/`col` directly, so sources do not implement
 ---their own completion callbacks.
 
+---@class PickyActions
 local M = {}
 
 ---@param path string

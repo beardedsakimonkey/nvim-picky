@@ -1,6 +1,18 @@
 ---Built-in sources. Specialized helpers are thin compositions of the
 ---generic command source, parsers, and item constructors.
 
+---@class PickySources
+---@field items fun(items?: PickyItem[]): PickySource
+---@field command fun(opts: PickyCommandOpts): PickyCommandSource
+---@field files fun(opts?: PickyFilesOpts): PickySource
+---@field buffers fun(opts?: { current: number? }): PickySource
+---@field git_status fun(opts?: PickyGitStatusOpts): PickyCommandSource
+---@field oldfiles fun(opts?: { limit: number? }): PickySource
+---@field grep fun(opts?: PickyGrepOpts): PickyCommandSource
+---@field symbols fun(opts?: PickySymbolsOpts): PickySource
+---@field help fun(opts?: PickyHelpOpts): PickySource|PickyCommandSource
+
+---@type PickySources
 return {
   items = require("picky.sources.items"),
   command = require("picky.sources.command"),

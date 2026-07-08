@@ -44,6 +44,20 @@ override global defaults using normal override semantics.
 `open()` is the only picker entry point. Static and live behavior are properties
 of the source, not separate picker APIs.
 
+For brevity, each built-in source also has a top-level shortcut: `picky.grep(opts)`
+is exactly `picky.open({ source = picky.sources.grep(opts) })`. These are
+generated in a loop over `sources`, so a new source module gets one for free; the
+single `opts` table is both the source's options and picker-level `window`,
+`keymaps`, and `debounce` overrides, since the source and `open()` each read only
+the keys they know. The shortcuts are sugar over `open()`, not a second entry
+point. `items` is the one exception: its argument is an item list rather than an
+options table, so it has no shortcut and is opened through `open()` directly.
+
+```lua
+picky.grep({ pattern = "update_input" })
+picky.buffers({ keymaps = { ["<C-d>"] = delete_buffer } })
+```
+
 ## Structured Items
 
 Every source emits item tables. The item is the canonical source object: matching,
@@ -371,6 +385,9 @@ picky.sources.oldfiles(options)
 picky.sources.grep(options)
 picky.sources.help(options)
 ```
+
+Each except `items` also has a top-level shortcut (`picky.files(options)` etc.;
+see [Public API](#public-api)).
 
 Specialized source helpers should remain thin compositions of the generic source,
 parser, and item constructors.

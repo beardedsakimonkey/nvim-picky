@@ -58,51 +58,39 @@ or restarts when the query changes.
 local picky = require("picky")
 
 -- Listed buffers, excluding the current buffer.
-picky.open({ source = picky.sources.buffers() })
+picky.buffers()
 
 -- Existing files from vim.v.oldfiles.
-picky.open({ source = picky.sources.oldfiles({ limit = 100 }) })
+picky.oldfiles({ limit = 100 })
 
 -- Changed files from `git status`.
-picky.open({ source = picky.sources.git_status() })
+picky.git_status()
 
--- Files below cwd. A built-in libuv scanner lists the whole tree once (no
--- external tool); picky filters and ranks locally, so frecency (see below)
--- and fuzzy matching order the results together. Matching runs incrementally
--- and is interrupted on each keystroke, so even a large tree stays responsive
--- (see Design: Incremental Matching). `ignore` takes glob patterns: a pattern
--- without `/` prunes matching names anywhere in the tree, one with `/` matches
--- cwd-relative paths. `limit` is an optional safety cap on how many paths are
--- loaded -- leave it unset so matching sees every file; set it only to bound
--- memory on enormous trees.
-picky.open({
-  source = picky.sources.files({
-    cwd = vim.fn.getcwd(),
-    hidden = false,
-    follow = false,
-    ignore = { ".git", "node_modules" },
-  }),
+-- Files below cwd.
+picky.files({
+  cwd = vim.fn.getcwd(),
+  hidden = false,
+  follow = false,
+  ignore = { ".git", "node_modules" },
 })
 
 -- Structured ripgrep locations.
-picky.open({
-  source = picky.sources.grep({
-    pattern = "update_input",
-    cwd = vim.fn.getcwd(),
-    fixed_strings = true,
-    smart_case = true,
-    paths = { "." },
-  }),
+picky.grep({
+  pattern = "update_input",
+  cwd = vim.fn.getcwd(),
+  fixed_strings = true,
+  smart_case = true,
+  paths = { "." },
 })
 
 -- Help tags, or live text search through runtime documentation.
-picky.open({ source = picky.sources.help() })
-picky.open({ source = picky.sources.help({ live = true }) })
+picky.help()
+picky.help({ live = true })
 
 -- LSP symbols: document symbols for the current buffer, or a live
 -- workspace-wide search that re-queries the server on each keystroke.
-picky.open({ source = picky.sources.symbols() })
-picky.open({ source = picky.sources.symbols({ workspace = true }) })
+picky.symbols()
+picky.symbols({ workspace = true })
 ```
 
 `grep()` accepts additional `rg` arguments through `args` and `executable` to

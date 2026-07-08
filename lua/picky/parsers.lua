@@ -1,5 +1,6 @@
 ---Line parsers and item constructors for common command output and paths.
 
+---@class PickyParsers
 local M = {}
 
 ---Build an item for a filesystem path that renders as `filename dir`. The
