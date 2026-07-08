@@ -6,7 +6,25 @@ local M = {}
 
 local ns = vim.api.nvim_create_namespace("picky")
 
-require("picky.highlights")
+local links = {
+  PickyMatch = "Special", -- matched characters
+  PickyPrompt = "Comment", -- the "> " prompt symbol
+  PickyCounter = "Comment", -- the n/total counter
+  PickySelected = "Visual", -- multi-selected rows
+  PickyError = "ErrorMsg", -- source error text
+  PickyEmpty = "Comment", -- the "no results" placeholder
+  PickyNormal = "NormalFloat", -- result/prompt window text and background
+  PickyBorder = "FloatBorder", -- result/prompt window border
+  PickyDir = "Comment", -- dimmed directory / path context
+  PickyMuted = "Comment", -- dimmed secondary context (authors, refs, containers)
+  PickyKind = "Type", -- symbol kind glyphs
+  PickyGitHash = "Identifier", -- commit hashes
+}
+
+---Register the default highlight links.
+for group, link in pairs(links) do
+  vim.api.nvim_set_hl(0, group, { link = link, default = true })
+end
 
 -- Resolve a window dimension against the editor size: values <= 1 are treated
 -- as a fraction of `total`, values > 1 as an absolute number of cells.
@@ -20,7 +38,7 @@ end
 ---@param value number
 ---@return string
 local function format_count(value)
-  return tostring(value):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
+  return (tostring(value):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", ""))
 end
 
 -- Map the floating windows' base groups onto picky's own, so users can restyle
