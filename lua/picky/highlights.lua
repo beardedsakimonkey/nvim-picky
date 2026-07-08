@@ -11,6 +11,7 @@ M.links = {
   PickyNormal = "NormalFloat", -- result/prompt window text and background
   PickyBorder = "FloatBorder", -- result/prompt window border
   PickyDir = "Comment", -- dimmed directory / path context
+  PickyMuted = "Comment", -- dimmed secondary context (authors, refs, containers)
   PickyKind = "Type", -- symbol kind glyphs
   PickyGitHash = "Identifier", -- commit hashes
 }

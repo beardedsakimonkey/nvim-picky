@@ -370,9 +370,9 @@ t.describe("sources.git_log", function()
       { text = " " },
       { field = "text" },
       { text = "  " },
-      { field = "author", hl = "PickyDir" },
-      { text = ", " },
-      { field = "date", hl = "PickyDir" },
+      { field = "author", hl = "PickyMuted" },
+      { text = ", ", hl = "PickyMuted" },
+      { field = "date", hl = "PickyMuted" },
     }, item.display)
   end)
 
@@ -384,14 +384,14 @@ t.describe("sources.git_log", function()
     t.eq({
       { field = "hash", hl = "PickyGitHash" },
       { text = " " },
-      { text = "(" },
-      { field = "refs", hl = "PickyDir" },
-      { text = ") " },
+      { text = "(", hl = "PickyMuted" },
+      { field = "refs", hl = "PickyMuted" },
+      { text = ") ", hl = "PickyMuted" },
       { field = "text" },
       { text = "  " },
-      { field = "author", hl = "PickyDir" },
-      { text = ", " },
-      { field = "date", hl = "PickyDir" },
+      { field = "author", hl = "PickyMuted" },
+      { text = ", ", hl = "PickyMuted" },
+      { field = "date", hl = "PickyMuted" },
     }, item.display)
   end)
 

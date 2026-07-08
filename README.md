@@ -288,6 +288,7 @@ vim.api.nvim_set_hl(0, "PickyDir", { link = "NonText" })
 | `PickyBorder`   | `FloatBorder` | result/prompt window border           |
 | `PickyMatch`    | `Special`     | matched characters                    |
 | `PickyDir`      | `Comment`     | directory and path context            |
+| `PickyMuted`    | `Comment`     | dimmed secondary context              |
 | `PickyKind`     | `Type`        | symbol kind glyphs                    |
 | `PickyGitHash`  | `Identifier`  | commit hashes                         |
 | `PickySelected` | `Visual`      | multi-selected rows                   |

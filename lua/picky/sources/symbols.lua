@@ -96,7 +96,7 @@ local function symbol_item(client_id, name, kind, container, target, dim)
   end
   if item[dim] then
     item.display[#item.display + 1] = { text = "  " }
-    item.display[#item.display + 1] = { field = dim, hl = "PickyDir" }
+    item.display[#item.display + 1] = { field = dim, hl = "PickyMuted" }
   end
   return item
 end

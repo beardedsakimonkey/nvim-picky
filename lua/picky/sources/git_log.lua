@@ -33,15 +33,15 @@ local function parse(line)
   if refs ~= "" then
     fields[#fields + 1] = "refs"
     -- Decorations sit between the hash and the subject, as in --oneline.
-    display[#display + 1] = { text = "(" }
-    display[#display + 1] = { field = "refs", hl = "PickyDir" }
-    display[#display + 1] = { text = ") " }
+    display[#display + 1] = { text = "(", hl = "PickyMuted" }
+    display[#display + 1] = { field = "refs", hl = "PickyMuted" }
+    display[#display + 1] = { text = ") ", hl = "PickyMuted" }
   end
   display[#display + 1] = { field = "text" }
   display[#display + 1] = { text = "  " }
-  display[#display + 1] = { field = "author", hl = "PickyDir" }
-  display[#display + 1] = { text = ", " }
-  display[#display + 1] = { field = "date", hl = "PickyDir" }
+  display[#display + 1] = { field = "author", hl = "PickyMuted" }
+  display[#display + 1] = { text = ", ", hl = "PickyMuted" }
+  display[#display + 1] = { field = "date", hl = "PickyMuted" }
 
   return {
     id = commit,
