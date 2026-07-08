@@ -7,7 +7,7 @@ A small, dependency-free picker for Neovim built around structured items.
 - Neovim 0.12 or newer
 - [`ripgrep`](https://github.com/BurntSushi/ripgrep) for
   `picky.sources.grep()` and live help search
-- `git` for `picky.sources.git_status()`
+- `git` for `picky.sources.git_status()` and `picky.sources.git_log()`
 - [`nvim-web-devicons`](https://github.com/nvim-tree/nvim-web-devicons)
   (optional) for file-type icons
 
@@ -66,6 +66,14 @@ picky.oldfiles({ limit = 100 })
 -- Changed files from `git status`.
 picky.git_status()
 
+-- Commits from `git log`; subject, author, short hash, and ref
+-- decorations are all searchable. Enter shows the commit.
+picky.git_log()
+picky.git_log({ limit = 500 })
+
+-- History of one file, following renames.
+picky.git_log({ path = vim.api.nvim_buf_get_name(0), follow = true })
+
 -- Files below cwd.
 picky.files({
   cwd = vim.fn.getcwd(),
@@ -94,7 +102,8 @@ picky.symbols({ workspace = true })
 ```
 
 `grep()` accepts additional `rg` arguments through `args` and `executable` to
-override the command name.
+override the command name; `git_status()` and `git_log()` accept `args` and
+`executable` the same way.
 
 `symbols()` also accepts `kinds` (SymbolKind names to keep, e.g.
 `{ "Function", "Method" }`), `bufnr` to pick a buffer other than the current
@@ -193,6 +202,7 @@ Built-in opening actions understand these common source fields:
 - `path`
 - `bufnr`
 - `tag`
+- `commit` — a git commit hash, shown via `git show` in a scratch buffer
 - `lnum` and `col`
 - `end_lnum` and `end_col` for quickfix entries
 
@@ -279,6 +289,7 @@ vim.api.nvim_set_hl(0, "PickyDir", { link = "NonText" })
 | `PickyMatch`    | `Special`     | matched characters                    |
 | `PickyDir`      | `Comment`     | directory and path context            |
 | `PickyKind`     | `Type`        | symbol kind glyphs                    |
+| `PickyGitHash`  | `Identifier`  | commit hashes                         |
 | `PickySelected` | `Visual`      | multi-selected rows                   |
 | `PickyPrompt`   | `Comment`     | the `>` prompt symbol                 |
 | `PickyCounter`  | `Comment`     | the `n/total` counter                 |

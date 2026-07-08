@@ -7,6 +7,7 @@
 ---@field files fun(opts?: PickyFilesOpts): PickySource
 ---@field buffers fun(opts?: { current: number? }): PickySource
 ---@field git_status fun(opts?: PickyGitStatusOpts): PickyCommandSource
+---@field git_log fun(opts?: PickyGitLogOpts): PickyCommandSource
 ---@field oldfiles fun(opts?: { limit: number? }): PickySource
 ---@field grep fun(opts?: PickyGrepOpts): PickyCommandSource
 ---@field symbols fun(opts?: PickySymbolsOpts): PickySource
@@ -19,6 +20,7 @@ return {
   files = require("picky.sources.files"),
   buffers = require("picky.sources.buffers"),
   git_status = require("picky.sources.git_status"),
+  git_log = require("picky.sources.git_log"),
   oldfiles = require("picky.sources.oldfiles"),
   grep = require("picky.sources.grep"),
   symbols = require("picky.sources.symbols"),

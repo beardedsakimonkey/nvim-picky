@@ -315,6 +315,95 @@ t.describe("sources.git_status", function()
   end)
 end)
 
+t.describe("sources.git_log", function()
+  local FULL = "0123456789abcdef0123456789abcdef01234567"
+  local SHORT = "0123456"
+
+  local function log_line(author, date, refs, subject)
+    return table.concat({ FULL, SHORT, author, date, refs, subject }, "\31")
+  end
+
+  t.it("builds the git log argument array", function()
+    local source = sources.git_log({
+      executable = "git-test",
+      limit = 50,
+      path = "lua/picky",
+      follow = true,
+      args = { "--all" },
+    })
+    local cmd = source._opts.command({ query = "", cwd = "." })
+    t.eq({
+      "git-test",
+      "log",
+      "--no-show-signature",
+      "--pretty=format:%H%x1f%h%x1f%an%x1f%ar%x1f%D%x1f%s",
+      "-n",
+      "50",
+      "--follow",
+      "--all",
+      "--",
+      "lua/picky",
+    }, cmd)
+    t.eq("Git log", source.name)
+    t.eq("once", source.refresh)
+  end)
+
+  t.it("omits --follow without a path", function()
+    local source = sources.git_log({ follow = true })
+    local cmd = assert(source._opts.command({ query = "", cwd = "." }))
+    t.ok(not vim.tbl_contains(cmd, "--follow"), "--follow requires a path")
+  end)
+
+  t.it("parses a commit line into a structured item", function()
+    local source = sources.git_log()
+    local item = assert(source._opts.parse(log_line("Ada Lovelace", "3 weeks ago", "", "Add a parser")))
+    t.eq(FULL, item.id)
+    t.eq(FULL, item.commit)
+    t.eq(SHORT, item.hash)
+    t.eq("Ada Lovelace", item.author)
+    t.eq("3 weeks ago", item.date)
+    t.eq("Add a parser", item.text)
+    t.eq(nil, item.refs)
+    t.eq({ "text", "author", "hash" }, item.fields)
+    t.eq({
+      { field = "hash", hl = "PickyGitHash" },
+      { text = " " },
+      { field = "text" },
+      { text = "  " },
+      { field = "author", hl = "PickyDir" },
+      { text = ", " },
+      { field = "date", hl = "PickyDir" },
+    }, item.display)
+  end)
+
+  t.it("includes ref decorations when present", function()
+    local source = sources.git_log()
+    local item = assert(source._opts.parse(log_line("Ada", "2 days ago", "HEAD -> main, tag: v1.0", "Release")))
+    t.eq("HEAD -> main, tag: v1.0", item.refs)
+    t.eq({ "text", "author", "hash", "refs" }, item.fields)
+    t.eq({
+      { field = "hash", hl = "PickyGitHash" },
+      { text = " " },
+      { text = "(" },
+      { field = "refs", hl = "PickyDir" },
+      { text = ") " },
+      { field = "text" },
+      { text = "  " },
+      { field = "author", hl = "PickyDir" },
+      { text = ", " },
+      { field = "date", hl = "PickyDir" },
+    }, item.display)
+  end)
+
+  t.it("accepts empty subjects and rejects non-format lines", function()
+    local source = sources.git_log()
+    local item = assert(source._opts.parse(log_line("Ada", "now", "", "")))
+    t.eq("", item.text)
+    t.eq(nil, source._opts.parse(""))
+    t.eq(nil, source._opts.parse("fatal: not a git repository"))
+  end)
+end)
+
 t.describe("sources.buffers", function()
   t.it("lists listed buffers except the current one", function()
     local current = vim.api.nvim_get_current_buf()

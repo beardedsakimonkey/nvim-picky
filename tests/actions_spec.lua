@@ -84,6 +84,77 @@ t.describe("actions.tabedit", function()
   end)
 end)
 
+t.describe("actions on commit items", function()
+  local function git(args, cwd)
+    local cmd = vim.list_extend({ "git" }, args)
+    local result = vim.system(cmd, {
+      cwd = cwd,
+      text = true,
+      env = { GIT_CONFIG_GLOBAL = "/dev/null", GIT_CONFIG_SYSTEM = "/dev/null" },
+    }):wait()
+    t.eq(0, result.code, ("git %s failed: %s"):format(table.concat(args, " "), result.stderr or ""))
+    return vim.trim(result.stdout or "")
+  end
+
+  ---One throwaway repo with a single commit, shared across the tests below.
+  local repo_dir, head
+  local function repo()
+    if not repo_dir then
+      repo_dir = vim.fn.tempname()
+      vim.fn.mkdir(repo_dir, "p")
+      git({ "init" }, repo_dir)
+      git({
+        "-c",
+        "user.name=picky",
+        "-c",
+        "user.email=picky@example.com",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "--allow-empty",
+        "-m",
+        "picky test commit",
+      }, repo_dir)
+      head = git({ "rev-parse", "HEAD" }, repo_dir)
+    end
+    return repo_dir, head
+  end
+
+  t.it("edit shows the commit in a git-filetype scratch buffer", function()
+    local cwd, hash = repo()
+    local ctx = make_ctx({ { commit = hash } }, { cwd = cwd })
+    actions.edit(ctx)
+    t.eq(true, ctx.closed)
+    local bufnr = vim.api.nvim_get_current_buf()
+    t.eq("picky://git/" .. hash, vim.api.nvim_buf_get_name(bufnr))
+    t.eq("git", vim.bo[bufnr].filetype)
+    t.eq(false, vim.bo[bufnr].modifiable)
+    local content = table.concat(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false), "\n")
+    t.ok(content:find(hash, 1, true) ~= nil, "buffer must contain the commit hash")
+    t.ok(content:find("picky test commit", 1, true) ~= nil, "buffer must contain the subject")
+
+    vim.cmd("enew")
+    actions.edit(make_ctx({ { commit = hash } }, { cwd = cwd }))
+    t.eq(bufnr, vim.api.nvim_get_current_buf(), "the same commit must reuse its buffer")
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+  end)
+
+  t.it("notifies and opens nothing for an unknown commit", function()
+    local cwd = repo()
+    local notified
+    local saved = vim.notify
+    ---@diagnostic disable-next-line: duplicate-set-field
+    vim.notify = function(message)
+      notified = message
+    end
+    local before = vim.api.nvim_get_current_buf()
+    actions.edit(make_ctx({ { commit = "deadbeef" } }, { cwd = cwd }))
+    vim.notify = saved
+    t.eq(before, vim.api.nvim_get_current_buf())
+    t.ok(notified and notified:find("deadbeef", 1, true) ~= nil, "expected a git show failure notification")
+  end)
+end)
+
 t.describe("actions.quickfix", function()
   t.it("fills the quickfix list from location items", function()
     local path = tempfile()

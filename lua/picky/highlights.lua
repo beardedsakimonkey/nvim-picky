@@ -12,6 +12,7 @@ M.links = {
   PickyBorder = "FloatBorder", -- result/prompt window border
   PickyDir = "Comment", -- dimmed directory / path context
   PickyKind = "Type", -- symbol kind glyphs
+  PickyGitHash = "Identifier", -- commit hashes
 }
 
 ---Register the default links. Exposed for testing.

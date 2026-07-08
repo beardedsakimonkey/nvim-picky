@@ -1,9 +1,16 @@
 ---Built-in actions. Opening actions understand the common item fields
----`bufnr`, `tag`, `path`, `lnum`/`col` directly, so sources do not implement
----their own completion callbacks.
+---`bufnr`, `tag`, `path`, `commit`, `lnum`/`col` directly, so sources do not
+---implement their own completion callbacks.
 
 ---@class PickyActions
 local M = {}
+
+local buffer_cmds = {
+  edit = "buffer %d",
+  split = "sbuffer %d",
+  vsplit = "vertical sbuffer %d",
+  tabedit = "tab sbuffer %d",
+}
 
 ---@param path string
 ---@param cwd string?
@@ -24,18 +31,37 @@ local function jump_to_position(item)
   pcall(vim.api.nvim_win_set_cursor, 0, { item.lnum, col })
 end
 
+---Find or create a scratch buffer holding `git show` output for the commit.
+---The buffer is looked up by name so reopening a commit reuses it.
+---@param commit string
+---@param cwd string?
+---@return number? bufnr
+local function commit_buffer(commit, cwd)
+  local name = "picky://git/" .. commit
+  local existing = vim.fn.bufnr(name)
+  if existing ~= -1 then
+    return existing
+  end
+  local result = vim.system({ "git", "show", commit }, { cwd = cwd, text = true }):wait()
+  if result.code ~= 0 then
+    local message = (result.stderr or ""):match("^%s*(.-)%s*$")
+    vim.notify(("picky: git show %s failed: %s"):format(commit, message), vim.log.levels.ERROR)
+    return nil
+  end
+  local bufnr = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_name(bufnr, name)
+  vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, vim.split(result.stdout or "", "\n"))
+  vim.bo[bufnr].modifiable = false
+  vim.bo[bufnr].filetype = "git"
+  return bufnr
+end
+
 ---@param item PickyItem
 ---@param cmd "edit"|"split"|"vsplit"|"tabedit"
 ---@param cwd string?
 local function open_item(item, cmd, cwd)
   if item.bufnr and vim.api.nvim_buf_is_valid(item.bufnr) then
-    local by_cmd = {
-      edit = "buffer %d",
-      split = "sbuffer %d",
-      vsplit = "vertical sbuffer %d",
-      tabedit = "tab sbuffer %d",
-    }
-    vim.cmd(by_cmd[cmd]:format(item.bufnr))
+    vim.cmd(buffer_cmds[cmd]:format(item.bufnr))
   elseif item.tag then
     local by_cmd = {
       edit = "help %s",
@@ -44,6 +70,12 @@ local function open_item(item, cmd, cwd)
       tabedit = "tab help %s",
     }
     vim.cmd(by_cmd[cmd]:format(vim.fn.fnameescape(item.tag)))
+  elseif item.commit then
+    local bufnr = commit_buffer(item.commit, cwd)
+    if not bufnr then
+      return
+    end
+    vim.cmd(buffer_cmds[cmd]:format(bufnr))
   elseif item.path then
     vim.cmd(("%s %s"):format(cmd, vim.fn.fnameescape(resolve_path(item.path, cwd))))
   else
