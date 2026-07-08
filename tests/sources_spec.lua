@@ -168,12 +168,9 @@ t.describe("sources.files", function()
     t.ok(result.error ~= nil, "expected a scan error")
   end)
 
-  t.it("runs once and attaches a frecency bonus", function()
+  t.it("runs once", function()
     local source = sources.files()
     t.eq("once", source.refresh)
-    t.eq("function", type(source.bonus))
-    local without = sources.files({ frecency = false })
-    t.eq(nil, without.bonus)
   end)
 end)
 

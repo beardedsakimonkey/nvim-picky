@@ -398,34 +398,9 @@ normal actions to open the corresponding help document.
 
 `files()` is a static source: a built-in libuv scanner (`picky.scanner`) lists
 the tree once — no external tool — and the matcher filters and ranks locally.
-This keeps ranking in one place — the matcher — so frecency can contribute to
-the order alongside fuzzy scoring (a live source, which delegates filtering to
-the command and emits unscored items, cannot). The scanner prunes entries
-matching a small glob list (default `{ ".git" }`) rather than parsing
-`.gitignore`; ignore fidelity is traded for zero dependencies and a predictable
-rule set.
-
-### Frecency
-
-A source may expose `bonus(item) -> number`, a per-item ranking bonus the session
-adds to each match's score before sorting (static sources only; live sources own
-their own order). `picky.frecency` implements this for file sources.
-
-Each tracked path carries two exponentially-decaying scores: an *access* score
-bumped on `BufReadPost`/`BufWinEnter` and a *write* score bumped on
-`BufWritePost`. The decay (`score * 0.5 ^ (Δt / half_life)`) folds frequency and
-recency into one number per channel, so storage stays O(1) per file with no
-timestamp history. A per-channel cooldown coalesces rapid repeats (see the
-`COOLDOWN` comment in `frecency.lua`). The combined, weighted score maps through
-a saturating curve to a bounded bonus, sized so it cannot overturn a clearly
-better text match but, on an empty query where fuzzy scores are equal, orders the
-list outright.
-
-State is a single mpack table under `stdpath("state")`, loaded lazily, flushed
-debounced and on `VimLeavePre`. Each flush re-reads and merges the on-disk copy
-(later timestamp wins per channel) so concurrent Neovim instances do not clobber
-each other, and prunes negligible entries to keep the file small. Tracking is
-installed by `setup()` and gated by `config.frecency.enabled`.
+The scanner prunes entries matching a small glob list (default `{ ".git" }`)
+rather than parsing `.gitignore`; ignore fidelity is traded for zero
+dependencies and a predictable rule set.
 
 ## Actions and Keymaps
 
@@ -510,10 +485,6 @@ picky.setup({
   debounce = 40,
   match_batch = 4000,
   icons = true,
-  frecency = {
-    enabled = true,
-    path = nil, -- stdpath("state")/picky/frecency.mpack
-  },
 })
 ```
 

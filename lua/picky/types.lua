@@ -38,7 +38,6 @@
 ---@field cwd string?
 ---@field refresh "once"|"query"?
 ---@field debounce number?
----@field bonus fun(item: PickyItem): number? per-item ranking bonus added to the match score (non-live sources only)
 ---@field start fun(self: PickySource, ctx: PickySourceContext)
 ---@field stop fun(self: PickySource)?
 

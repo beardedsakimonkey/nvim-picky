@@ -64,17 +64,6 @@ t.describe("session", function()
     t.eq({ "apple", "banana" }, visible_texts(session))
   end)
 
-  t.it("adds a source bonus to match scores when ordering", function()
-    local session, source = new_session()
-    source.bonus = function(item)
-      return item.text == "b" and 100 or 0
-    end
-    source.contexts[1].emit({ { id = 1, text = "a" }, { id = 2, text = "b" } })
-    source.contexts[1].finish()
-    -- Empty query: equal base scores, so the bonus alone floats "b" above "a".
-    t.eq({ "b", "a" }, visible_texts(session))
-  end)
-
   t.it("narrows the match set as the query grows", function()
     local session, source = new_session()
     source.contexts[1].emit({
@@ -248,14 +237,15 @@ t.describe("session", function()
 
   t.it("keeps a navigated cursor stable when later chunks reorder", function()
     local session, source = new_session()
-    source.bonus = function(item)
-      return item.id == "c" and 100 or 0
-    end
-    source.contexts[1].emit({ { id = "a", text = "alpha" }, { id = "b", text = "beta" } })
+    session:set_query("b")
+    -- Neither "xb" nor "yb" matches "b" at a word boundary, so both score the
+    -- same and tie-break to emit order.
+    source.contexts[1].emit({ { id = "a", text = "xb" }, { id = "b", text = "yb" } })
     session:move(1)
     t.eq("b", session.active_id)
-    source.contexts[1].emit({ { id = "c", text = "charlie" } })
-    t.eq({ "charlie", "alpha", "beta" }, visible_texts(session))
+    -- "b" matches at a boundary, outscoring both and jumping to the top.
+    source.contexts[1].emit({ { id = "c", text = "b" } })
+    t.eq({ "b", "xb", "yb" }, visible_texts(session))
     t.eq("b", session.active_id)
     t.eq(3, session:active_index())
   end)

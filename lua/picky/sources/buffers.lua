@@ -7,7 +7,6 @@ return function()
   return {
     name = "Buffers",
     refresh = "once",
-    bonus = require("picky.frecency").bonus,
     start = function(_, ctx)
       local items = {}
       for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do

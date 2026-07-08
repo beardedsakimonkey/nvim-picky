@@ -52,7 +52,6 @@ end
 function M.setup(opts)
   opts = opts or {}
   require("picky.config").setup(opts)
-  require("picky.frecency").setup(require("picky.config").options.frecency)
 end
 
 ---Open a picker. The only picker entry point: static and live behavior are

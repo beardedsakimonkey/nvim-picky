@@ -16,21 +16,12 @@ local M = {}
 ---@field shrink boolean?
 ---@field input_position "top"|"bottom"?
 
----@class PickyFrecencyConfig
----@field enabled boolean Track file reads/writes and rank file sources by frecency.
----@field path string? Path to the mpack store; defaults to stdpath("state")/picky/frecency.mpack.
-
----@class PickyFrecencyConfigOpts
----@field enabled boolean?
----@field path string?
-
 ---@class PickyConfig
 ---@field window PickyWindowConfig Floating window appearance.
 ---@field keymaps table<string, string> Maps keys (in the input buffer) to action names.
 ---@field debounce integer Milliseconds to wait after a keystroke before refiltering.
 ---@field match_batch integer Items matched per event-loop slice for local (non-live) sources.
 ---@field icons boolean Whether file-type icons and symbol kind glyphs are enabled.
----@field frecency PickyFrecencyConfig Frecency tracking for file sources.
 
 ---@class PickyConfigOpts
 ---@field window PickyWindowConfigOpts?
@@ -38,7 +29,6 @@ local M = {}
 ---@field debounce integer?
 ---@field match_batch integer?
 ---@field icons boolean?
----@field frecency PickyFrecencyConfigOpts?
 
 ---@type PickyConfig
 M.defaults = {
@@ -78,10 +68,6 @@ M.defaults = {
   -- (less overhead) but longer per-slice pauses.
   match_batch = 4000,
   icons = true,
-  frecency = {
-    enabled = true,
-    -- path defaults to stdpath("state")/picky/frecency.mpack inside the module.
-  },
 }
 
 M.options = vim.deepcopy(M.defaults)

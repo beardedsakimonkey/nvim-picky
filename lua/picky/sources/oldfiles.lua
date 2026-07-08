@@ -9,7 +9,6 @@ return function(opts)
   return {
     name = "Oldfiles",
     refresh = "once",
-    bonus = require("picky.frecency").bonus,
     start = function(_, ctx)
       local items = {}
       for _, path in ipairs(vim.v.oldfiles or {}) do

@@ -1,8 +1,7 @@
 ---File source backed by picky's own libuv scanner, run once. The scanner
----lists the tree; picky filters and ranks locally, which lets frecency
----contribute to the order (and, on an empty query, drive it). Items render
----as `filename dir` via parsers.file_item and carry the absolute path for
----opening and frecency lookups.
+---lists the tree; picky filters and ranks locally. Items render as
+---`filename dir` via parsers.file_item and carry the absolute path for
+---opening.
 
 local parsers = require("picky.parsers")
 local scanner = require("picky.scanner")
@@ -13,7 +12,6 @@ local scanner = require("picky.scanner")
 ---@field follow boolean? follow symlinks (default false)
 ---@field limit number? safety cap on paths loaded; unset means load every file so local matching is exhaustive
 ---@field ignore string[]? glob patterns to skip; matching directories are pruned (default { ".git", "node_modules" })
----@field frecency boolean? rank by frecency (default true)
 
 ---@param opts PickyFilesOpts?
 ---@return PickySource
@@ -58,8 +56,5 @@ return function(opts)
     end
   end
 
-  if opts.frecency ~= false then
-    source.bonus = require("picky.frecency").bonus
-  end
   return source
 end

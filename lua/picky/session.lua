@@ -226,18 +226,18 @@ end
 
 ---Run one matching slice for pass `gen`: evaluate up to `match_batch` items —
 ---the `recheck` list first, then the contiguous tail from `scan_next` — against
----the current terms, add the source bonus, then sort and notify. While work
----remains it reschedules itself onto the event loop. A `gen` other than the
----live `match_gen` means a newer pass has superseded this one, so the slice
----does nothing; returning before touching `match_scheduled` leaves the current
----pass's own scheduling intact.
+---the current terms, then sort and notify. While work remains it reschedules
+---itself onto the event loop. A `gen` other than the live `match_gen` means a
+---newer pass has superseded this one, so the slice does nothing; returning
+---before touching `match_scheduled` leaves the current pass's own scheduling
+---intact.
 ---@param gen number
 function Session:_match_step(gen)
   if self.closed or gen ~= self.match_gen then
     return
   end
   self.match_scheduled = false
-  local items, terms, bonus = self.items, self.terms, self.source.bonus
+  local items, terms = self.items, self.terms
   for _ = 1, (self.config.match_batch or MATCH_BATCH) do
     local i
     if self.recheck_pos <= #self.recheck then
@@ -251,9 +251,6 @@ function Session:_match_step(gen)
     end
     local m = matcher.match_item(items[i], terms, i)
     if m then
-      if bonus then
-        m.score = m.score + (bonus(items[i]) or 0)
-      end
       self.matches[#self.matches + 1] = m
     end
   end

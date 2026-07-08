@@ -121,30 +121,6 @@ kinds. Disable icons and use plain symbol kind labels with:
 picky.setup({ icons = false })
 ```
 
-## Frecency
-
-File sources (`files()`, `buffers()`, `oldfiles()`) rank by **frecency**: files
-you open and edit often and recently float toward the top. picky records two
-exponentially-decaying scores per path — an *access* score (bumped when a file is
-read into or re-displayed in a window) and a *write* score (bumped on save) —
-and adds a bounded bonus to each item's match score. On an empty query the bonus
-alone orders the list; with a query it nudges ranking without overturning a
-clearly better text match.
-
-Tracking requires `setup()` (it installs the autocmds). State persists to an
-mpack file under `stdpath("state")`, merged across concurrent Neovim instances.
-
-```lua
-picky.setup({
-  frecency = {
-    enabled = true, -- default; set false to disable tracking and ranking
-    path = nil,     -- default: stdpath("state")/picky/frecency.mpack
-  },
-})
-```
-
-Opt a single `files()` picker out with `picky.sources.files({ frecency = false })`.
-
 ## Items
 
 Every source emits item tables. Picky reserves four optional fields:
