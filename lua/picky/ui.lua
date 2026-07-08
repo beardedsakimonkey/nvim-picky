@@ -17,6 +17,12 @@ local function resolve_dimension(value, total)
   return math.floor(value)
 end
 
+---@param value number
+---@return string
+local function format_count(value)
+  return tostring(value):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
+end
+
 -- Map the floating windows' base groups onto picky's own, so users can restyle
 -- the picker via PickyNormal/PickyBorder without touching global float groups.
 local winhighlight = "NormalFloat:PickyNormal,FloatBorder:PickyBorder"
@@ -388,9 +394,9 @@ function UI:_render_counter(active, total)
   end
   local selected = session:selected_count()
   if selected > 0 then
-    parts[#parts + 1] = ("(%d)"):format(selected)
+    parts[#parts + 1] = ("(%s)"):format(format_count(selected))
   end
-  parts[#parts + 1] = ("%d/%d"):format(active, total)
+  parts[#parts + 1] = ("%s/%s"):format(format_count(active), format_count(total))
   self.counter_extmark = vim.api.nvim_buf_set_extmark(self.prompt_buf, ns, 0, 0, {
     id = self.counter_extmark,
     virt_text = { { table.concat(parts, " "), "PickyCounter" } },

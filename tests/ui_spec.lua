@@ -34,6 +34,18 @@ local function set_prompt(text)
   vim.api.nvim_buf_set_lines(vim.api.nvim_get_current_buf(), 0, -1, false, { text })
 end
 
+local function prompt_counter()
+  local buf = vim.api.nvim_get_current_buf()
+  local marks = vim.api.nvim_buf_get_extmarks(buf, -1, 0, -1, { details = true })
+  for _, mark in ipairs(marks) do
+    local virt_text = mark[4].virt_text
+    if virt_text and virt_text[1] and virt_text[1][2] == "PickyCounter" then
+      return virt_text[1][1]
+    end
+  end
+  error("no prompt counter found")
+end
+
 local function open_static(items, opts)
   return picky.open(vim.tbl_extend("force", {
     source = picky.sources.items(items),
@@ -49,6 +61,18 @@ t.describe("ui", function()
     t.eq({ "one" }, result_lines())
     session:close()
     t.eq(before, #floating_wins())
+  end)
+
+  t.it("formats prompt counter numbers with commas", function()
+    local items = {}
+    for i = 1, 1234 do
+      items[i] = { id = i, text = "item " .. i }
+    end
+    local session = open_static(items)
+    t.eq("1/1,234", prompt_counter())
+    session:toggle_all()
+    t.eq("(1,234) 1/1,234", prompt_counter())
+    session:close()
   end)
 
   t.it("filters as the prompt changes", function()
