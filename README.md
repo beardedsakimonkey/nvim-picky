@@ -57,7 +57,7 @@ or restarts when the query changes.
 ```lua
 local picky = require("picky")
 
--- Listed buffers, excluding the current buffer.
+-- All listed buffers.
 picky.buffers()
 
 -- Existing files from vim.v.oldfiles.

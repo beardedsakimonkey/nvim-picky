@@ -20,7 +20,7 @@ require("picky.types")
 ---@field open fun(opts: { source: PickySource, window: table?, keymaps: table?, debounce: number? }): PickySession
 ---@field command fun(opts: PickyCommandOpts|PickyPickerOpts): PickySession
 ---@field files fun(opts?: PickyFilesOpts|PickyPickerOpts): PickySession
----@field buffers fun(opts?: { current: number? }|PickyPickerOpts): PickySession
+---@field buffers fun(opts?: PickyPickerOpts): PickySession
 ---@field git_status fun(opts?: PickyGitStatusOpts|PickyPickerOpts): PickySession
 ---@field git_log fun(opts?: PickyGitLogOpts|PickyPickerOpts): PickySession
 ---@field oldfiles fun(opts?: { limit: number? }|PickyPickerOpts): PickySession

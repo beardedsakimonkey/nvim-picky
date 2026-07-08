@@ -5,7 +5,7 @@
 ---@field items fun(items?: PickyItem[]): PickySource
 ---@field command fun(opts: PickyCommandOpts): PickyCommandSource
 ---@field files fun(opts?: PickyFilesOpts): PickySource
----@field buffers fun(opts?: { current: number? }): PickySource
+---@field buffers fun(): PickySource
 ---@field git_status fun(opts?: PickyGitStatusOpts): PickyCommandSource
 ---@field git_log fun(opts?: PickyGitLogOpts): PickyCommandSource
 ---@field oldfiles fun(opts?: { limit: number? }): PickySource
