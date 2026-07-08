@@ -26,6 +26,7 @@ local query_parser = require("picky.query")
 ---@field query string
 ---@field terms PickyTerm[]
 ---@field active_id string|number?
+---@field active_pinned boolean true after explicit navigation should preserve the active id
 ---@field selected table<string|number, boolean>
 ---@field loading boolean
 ---@field error string?
@@ -105,6 +106,7 @@ function M.new(opts)
     query = "",
     terms = {},
     active_id = nil,
+    active_pinned = false,
     selected = {},
     loading = false,
     error = nil,
@@ -268,10 +270,10 @@ function Session:_match_step(gen)
   end
 end
 
----Keep the active id if still visible, otherwise fall back to the first
----match.
+---Keep manually navigated active ids stable; otherwise keep the cursor on the
+---first current match as async batches change the sorted order.
 function Session:_fix_active()
-  if self.active_id ~= nil and self:active_index() > 0 then
+  if self.active_pinned and self.active_id ~= nil and self:active_index() > 0 then
     return
   end
   local first = self.matches[1]
@@ -288,10 +290,10 @@ function Session:set_query(query)
   self.terms = query_parser.parse(query)
   -- A new query is a new result list: the cursor belongs on the best match,
   -- not wherever the previous query left it. Dropping the active id here
-  -- moves the cursor to the top exactly once — _fix_active re-anchors it on
-  -- the first results of the new query and keeps it stable across later
-  -- slices.
+  -- lets _fix_active keep the cursor on the first result until navigation pins
+  -- a specific item.
   self.active_id = nil
+  self.active_pinned = false
   if self.live then
     self:_debounced_restart()
     return
@@ -387,6 +389,7 @@ function Session:move(offset)
   end
   index = math.min(math.max(index + offset, 1), #self.matches)
   self.active_id = self.items[self.matches[index].index].id
+  self.active_pinned = true
   self:_notify()
 end
 

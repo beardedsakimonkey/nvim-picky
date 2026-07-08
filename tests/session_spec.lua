@@ -233,16 +233,31 @@ t.describe("session", function()
     t.eq("a", session.active_id)
   end)
 
-  t.it("keeps the cursor stable across result chunks of one query", function()
+  t.it("keeps the cursor on the first result across async chunks until navigation", function()
     local session, source = new_session()
     session:set_query("ap")
     source.contexts[1].emit({ { id = "a", text = "xapx" } })
     t.eq("a", session.active_id)
-    -- "ap" ranks above "xapx" and sorts to the top, but arriving chunks must
-    -- not steal the cursor.
+    -- "ap" ranks above "xapx" and sorts to the top; until the user navigates,
+    -- async batches should keep the cursor on row 1.
     source.contexts[1].emit({ { id = "b", text = "ap" } })
     t.eq({ "ap", "xapx" }, visible_texts(session))
-    t.eq("a", session.active_id)
+    t.eq("b", session.active_id)
+    t.eq(1, session:active_index())
+  end)
+
+  t.it("keeps a navigated cursor stable when later chunks reorder", function()
+    local session, source = new_session()
+    source.bonus = function(item)
+      return item.id == "c" and 100 or 0
+    end
+    source.contexts[1].emit({ { id = "a", text = "alpha" }, { id = "b", text = "beta" } })
+    session:move(1)
+    t.eq("b", session.active_id)
+    source.contexts[1].emit({ { id = "c", text = "charlie" } })
+    t.eq({ "charlie", "alpha", "beta" }, visible_texts(session))
+    t.eq("b", session.active_id)
+    t.eq(3, session:active_index())
   end)
 
   t.it("re-anchors the cursor once per query for live sources", function()
