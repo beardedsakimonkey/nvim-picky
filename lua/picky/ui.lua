@@ -19,6 +19,7 @@ local links = {
   PickyMuted = "Comment", -- dimmed secondary context (authors, refs, containers)
   PickyKind = "Type", -- symbol kind glyphs
   PickyGitHash = "Identifier", -- commit hashes
+  PickyBufVisible = "Statement", -- name of a buffer on screen in a window
 }
 
 ---Register the default highlight links.

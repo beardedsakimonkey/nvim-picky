@@ -267,6 +267,7 @@ vim.api.nvim_set_hl(0, "PickyDir", { link = "NonText" })
 | `PickyMuted`    | `Comment`     | dimmed secondary context              |
 | `PickyKind`     | `Type`        | symbol kind glyphs                    |
 | `PickyGitHash`  | `Identifier`  | commit hashes                         |
+| `PickyBufVisible` | `Statement` | name of a buffer on screen in a window |
 | `PickySelected` | `Visual`      | multi-selected rows                   |
 | `PickyPrompt`   | `Comment`     | the `>` prompt symbol                 |
 | `PickyCounter`  | `Comment`     | the `n/total` counter                 |

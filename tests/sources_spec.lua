@@ -424,6 +424,36 @@ t.describe("sources.buffers", function()
     vim.api.nvim_buf_delete(listed, { force = true })
     vim.api.nvim_buf_delete(unlisted, { force = true })
   end)
+
+  t.it("paints the name of buffers visible on the current tabpage", function()
+    local function marked(item)
+      for _, chunk in ipairs(type(item.display) == "table" and item.display or {}) do
+        if (chunk.field == "name" or chunk.field == "text") and chunk.hl == "PickyBufVisible" then
+          return true
+        end
+      end
+      return false
+    end
+
+    local previous = vim.api.nvim_get_current_buf()
+    local shown = vim.fn.bufadd(vim.fn.tempname())
+    vim.bo[shown].buflisted = true
+    vim.api.nvim_set_current_buf(shown)
+    local hidden = vim.fn.bufadd(vim.fn.tempname())
+    vim.bo[hidden].buflisted = true
+
+    local result = run_source(sources.buffers())
+    local by_bufnr = {}
+    for _, item in ipairs(result.items) do
+      by_bufnr[item.bufnr] = item
+    end
+    t.ok(marked(by_bufnr[shown]), "on-screen buffer must be marked")
+    t.ok(not marked(by_bufnr[hidden]), "hidden buffer must not be marked")
+
+    vim.api.nvim_set_current_buf(previous)
+    vim.api.nvim_buf_delete(shown, { force = true })
+    vim.api.nvim_buf_delete(hidden, { force = true })
+  end)
 end)
 
 t.describe("sources.oldfiles", function()
