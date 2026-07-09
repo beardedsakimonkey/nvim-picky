@@ -37,6 +37,15 @@ t.describe("matcher", function()
     t.eq("plugins.lua", matched_texts(items, "pl")[1])
   end)
 
+  t.it("scores the compact match, not the greedy leftmost one", function()
+    -- A stray early `p` must not anchor the match: `pick` on
+    -- "pack/picky.lua" scores (and highlights) the run in "picky", so it
+    -- beats a name where the characters really are scattered.
+    local items = { { text = "pixck.lua" }, { text = "pack/picky.lua" } }
+    t.eq("pack/picky.lua", matched_texts(items, "pick")[1])
+    t.eq({ 6, 7, 8, 9 }, match(items, "pick")[1].positions.text)
+  end)
+
   t.it("ranks a boundary acronym above a non-boundary match", function()
     -- The gap penalty must not bury acronym matches: `fb` should favour
     -- "foo_bar" (both chars start a word) over "fabric" (b mid-word).

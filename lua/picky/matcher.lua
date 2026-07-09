@@ -134,17 +134,42 @@ local function match_term(value, term)
     return score, char_positions(value, s, s + #needle - 1)
   end
 
-  -- Fuzzy: greedy leftmost ordered subsequence. Greedy never misses an
-  -- existing subsequence; it only affects the score.
-  local positions = {}
-  local score = 0
-  local last = 0
+  -- Fuzzy, in two passes. A greedy leftmost scan never misses an existing
+  -- subsequence, but scoring it directly punishes early stray characters:
+  -- `pick` on "pack/picky.lua" would anchor at the `p` of "pack" and scatter
+  -- the rest, burying the item below files that merely lack the stray `p`.
+  -- So the forward pass only proves a match and finds the leftmost position
+  -- one can end; the backward pass from there takes the tightest match ending
+  -- at that point, and that compact match is what gets scored/highlighted.
   local from = 1
+  local stop = 0
   for ci = 1, #needle do
     local found = hay:find(needle:sub(ci, ci), from, true)
     if not found then
       return nil
     end
+    stop = found
+    from = found + 1
+  end
+
+  -- Walk back from `stop` re-matching the needle in reverse; every character
+  -- is guaranteed to be found at or after its forward-pass position.
+  local at = {}
+  local pos = stop
+  for ci = #needle, 1, -1 do
+    local byte = needle:byte(ci)
+    while hay:byte(pos) ~= byte do
+      pos = pos - 1
+    end
+    at[ci] = pos
+    pos = pos - 1
+  end
+
+  local positions = {}
+  local score = 0
+  local last = 0
+  for ci = 1, #needle do
+    local found = at[ci]
     if is_char_start(value:byte(found)) then
       positions[#positions + 1] = found
     end
@@ -161,7 +186,6 @@ local function match_term(value, term)
       score = score + BOUNDARY
     end
     last = found
-    from = found + 1
   end
   return score - slack, positions
 end
