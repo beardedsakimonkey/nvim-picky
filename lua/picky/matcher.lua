@@ -1,7 +1,9 @@
 ---Matching terms against item fields.
 ---
 ---Every term must match at least one searchable field; different terms may
----match different fields. Positions are 1-based byte offsets at the start of
+---match different fields. `fields` order is a ranking signal: a match on an
+---earlier field outscores an equal-quality match on a later one (FIELD_RANK).
+---Positions are 1-based byte offsets at the start of
 ---matched UTF-8 characters. Case folding is ASCII-oriented; non-ASCII bytes
 ---are compared literally.
 ---
@@ -28,6 +30,14 @@ local BASE = 1
 local CONSECUTIVE = 8
 local BOUNDARY = 10
 local GAP = 1
+
+-- A match gains FIELD_RANK for every field listed after the one it landed in,
+-- so `fields` order ranks across items, not just within one: `pick` on the
+-- name "picky.lua" outranks the same characters in the dir "lua/picky", which
+-- would otherwise tie (same length, boundary, and runs). Kept well below
+-- BOUNDARY/CONSECUTIVE so a genuinely better match in a later field still
+-- wins; anything above the slack fields typically differ by (< 1) suffices.
+local FIELD_RANK = 2
 
 -- Largest field prefix an unanchored term (fuzzy/exact/inverse) will scan. A
 -- minified bundle can put a megabyte-long line on screen, and folding plus
@@ -193,13 +203,16 @@ function M.match_item(item, terms, index)
       end
     else
       local best_score, best_field, best_positions
-      for _, field in ipairs(fields) do
+      for rank, field in ipairs(fields) do
         local value = item[field]
         if type(value) == "string" then
           local score, pos = match_term(value, term)
-          -- Strict > keeps the first field named in `fields` on ties.
-          if score and (best_score == nil or score > best_score) then
-            best_score, best_field, best_positions = score, field, pos
+          if score then
+            score = score + (#fields - rank) * FIELD_RANK
+            -- Strict > keeps the first field named in `fields` on ties.
+            if best_score == nil or score > best_score then
+              best_score, best_field, best_positions = score, field, pos
+            end
           end
         end
       end

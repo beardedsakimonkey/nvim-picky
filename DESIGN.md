@@ -137,8 +137,12 @@ A grep item can expose:
 ```
 
 If `fields` is omitted and `text` is present, it defaults to `{ "text" }`.
-Fields are independent of display order. A source may display a basename before
-its directory while still exposing the complete path for searching and actions.
+Order fields by importance: a match on an earlier field outranks an
+equal-quality match on a later one, so a file item listing `name` before `dir`
+ranks a query hitting the filename above the same characters in a directory
+component. Fields are independent of display order. A source may display a
+basename before its directory while still exposing the complete path for
+searching and actions.
 
 ### Display
 
@@ -278,9 +282,10 @@ The matcher should return enough information to rank and highlight an item:
 The item index provides deterministic tie-breaking, so equal scores retain source
 order. Positions are 1-based byte offsets at the start of matched UTF-8
 characters, matching Neovim's byte-column APIs. Smart-case detection and folding
-are ASCII-oriented; non-ASCII characters are compared byte-for-byte. If a term
-matches multiple fields with the same score, the first field named in `fields`
-wins.
+are ASCII-oriented; non-ASCII characters are compared byte-for-byte. Earlier
+fields carry a small rank bonus, so an equal-quality match on `name` outscores
+one on `dir` across items; if a term matches multiple fields of one item with
+the same score, the first field named in `fields` wins.
 
 Matching is bounded in the field length. Unanchored terms (fuzzy, exact, and
 inverse) scan only the leading `MAX_MATCH_BYTES` of a field, so a minified

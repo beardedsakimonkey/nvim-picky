@@ -6,7 +6,7 @@
 ---@class PickyItem
 ---@field id string|number?
 ---@field text string?
----@field fields string[]? searchable top-level string fields, default { "text" }
+---@field fields string[]? searchable top-level string fields, most important first (earlier fields rank higher), default { "text" }
 ---@field display string|PickyDisplayChunk[]?
 ---@field highlights PickyHighlight[]? line-relative color spans (e.g. parsed from ANSI), painted below PickyMatch
 ---@field [string] any source-owned data (path, bufnr, tag, lnum, col, ...)

@@ -101,6 +101,22 @@ t.describe("matcher", function()
     t.ok(matches[1].positions.text, "expected positions on text")
   end)
 
+  t.it("ranks a match on an earlier field above one on a later field", function()
+    -- `pick` on the name "picky.lua" must beat the same characters in the
+    -- dir "lua/picky", which otherwise score identically (same length,
+    -- boundary, and runs) and would fall back to source order.
+    local items = {
+      { text = "lua/picky/ui.lua", name = "ui.lua", dir = "lua/picky", fields = { "name", "dir", "text" } },
+      {
+        text = "~/.config/nvim/lua/config/picky.lua",
+        name = "picky.lua",
+        dir = "~/.config/nvim/lua/config",
+        fields = { "name", "dir", "text" },
+      },
+    }
+    t.eq("~/.config/nvim/lua/config/picky.lua", matched_texts(items, "pick")[1])
+  end)
+
   t.it("prefers the first named field on score ties", function()
     local items = { { a = "same", b = "same", fields = { "a", "b" } } }
     local matches = match(items, "'same")
