@@ -834,10 +834,12 @@ t.describe("sources.help", function()
     t.ok(by_tag["help"], "the 'help' tag should exist")
     t.eq("help", by_tag["help"].text)
   end)
+end)
 
-  t.it("decorates live matches with a doc-file tag", function()
-    local source = sources.help({ live = true, executable = "rg" })
-    t.eq("Help", source.name)
+t.describe("sources.helpgrep", function()
+  t.it("decorates matches with a doc-file tag", function()
+    local source = sources.helpgrep({ executable = "rg" })
+    t.eq("Helpgrep", source.name)
     t.eq("query", source.refresh)
     local cmd = assert(source._opts.command({ query = "needle", cwd = "." }))
     t.eq({ "rg", "--vimgrep", "--no-heading", "--color=never", "--smart-case", "--" },
@@ -848,13 +850,13 @@ t.describe("sources.help", function()
     t.eq({ "text", "tag" }, item.fields)
   end)
 
-  t.it("uses the plain grep fallback for live matches", function()
+  t.it("uses the plain grep fallback", function()
     local executable = vim.fn.executable
     vim.fn.executable = function(name)
       t.eq("rg", name)
       return 0
     end
-    local ok, source = pcall(sources.help, { live = true })
+    local ok, source = pcall(sources.helpgrep)
     vim.fn.executable = executable
     if not ok then
       error(source)

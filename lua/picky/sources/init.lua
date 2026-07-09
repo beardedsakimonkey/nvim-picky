@@ -11,7 +11,8 @@
 ---@field oldfiles fun(opts?: { limit: number? }): PickySource
 ---@field grep fun(opts?: PickyGrepOpts): PickyCommandSource
 ---@field symbols fun(opts?: PickySymbolsOpts): PickySource
----@field help fun(opts?: PickyHelpOpts): PickySource|PickyCommandSource
+---@field help fun(): PickySource
+---@field helpgrep fun(opts?: PickyHelpgrepOpts): PickyCommandSource
 
 ---@type PickySources
 return {
@@ -25,4 +26,5 @@ return {
   grep = require("picky.sources.grep"),
   symbols = require("picky.sources.symbols"),
   help = require("picky.sources.help"),
+  helpgrep = require("picky.sources.helpgrep"),
 }

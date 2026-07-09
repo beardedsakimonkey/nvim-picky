@@ -5,7 +5,7 @@ A small, dependency-free picker for Neovim built around structured items.
 ## Requirements
 
 - Neovim 0.12 or newer
-- `grep` for `picky.sources.grep()` and live help search (normally provided by
+- `grep` for `picky.sources.grep()` and `picky.helpgrep()` (normally provided by
   the operating system); [`ripgrep`](https://github.com/BurntSushi/ripgrep) is
   used when available
 - `git` for `picky.sources.git_status()` and `picky.sources.git_log()`
@@ -94,7 +94,7 @@ picky.grep({
 
 -- Help tags, or live text search through runtime documentation.
 picky.help()
-picky.help({ live = true })
+picky.helpgrep()
 
 -- LSP symbols: document symbols for the current buffer, or a live
 -- workspace-wide search that re-queries the server on each keystroke.
@@ -107,6 +107,7 @@ picky.symbols({ workspace = true })
 contains additional arguments for the selected executable. The fallback uses
 extended grep regular expressions (`grep -E`) and the selected grep
 implementation's normal recursive-search behavior.
+`helpgrep()` accepts the same `executable` choices plus a `debounce` override.
 `git_status()` and `git_log()` also accept `args` and `executable`.
 
 `symbols()` also accepts `kinds` (SymbolKind names to keep, e.g.

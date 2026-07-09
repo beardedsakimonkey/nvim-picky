@@ -26,7 +26,8 @@ require("picky.types")
 ---@field oldfiles fun(opts?: { limit: number? }|PickyPickerOpts): PickySession
 ---@field grep fun(opts?: PickyGrepOpts|PickyPickerOpts): PickySession
 ---@field symbols fun(opts?: PickySymbolsOpts|PickyPickerOpts): PickySession
----@field help fun(opts?: PickyHelpOpts|PickyPickerOpts): PickySession
+---@field help fun(opts?: PickyPickerOpts): PickySession
+---@field helpgrep fun(opts?: PickyHelpgrepOpts|PickyPickerOpts): PickySession
 local M = {}
 
 M.sources = require("picky.sources")

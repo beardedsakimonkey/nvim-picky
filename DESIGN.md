@@ -388,7 +388,8 @@ picky.sources.files(options)
 picky.sources.buffers(options)
 picky.sources.oldfiles(options)
 picky.sources.grep(options)
-picky.sources.help(options)
+picky.sources.help()
+picky.sources.helpgrep(options)
 ```
 
 Each except `items` also has a top-level shortcut (`picky.files(options)` etc.;
@@ -397,9 +398,9 @@ see [Public API](#public-api)).
 Specialized source helpers should remain thin compositions of the generic source,
 parser, and item constructors.
 
-`help()` lists help tags by default. `help({ live = true })` runs a debounced
-text search over runtime documentation and still emits items with `tag`, allowing
-normal actions to open the corresponding help document.
+`help()` lists help tags. `helpgrep()` runs a debounced text search over runtime
+documentation and still emits items with `tag`, allowing normal actions to open
+the corresponding help document.
 
 `files()` is a static source: a built-in libuv scanner (`picky.scanner`) lists
 the tree once — no external tool — and the matcher filters and ranks locally.
