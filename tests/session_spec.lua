@@ -419,3 +419,73 @@ t.describe("session", function()
     t.eq("", session.query)
   end)
 end)
+
+t.describe("history", function()
+  ---Sessions here get their own history bucket via a unique source name, so
+  ---recordings from other tests cannot leak in.
+  local function named_session(name)
+    local source = t.fake_source()
+    source.name = name
+    local session = Session.new({ source = source, config = { debounce = 5 } })
+    session:start()
+    return session
+  end
+
+  local function record(name, query)
+    local session = named_session(name)
+    session:set_query(query)
+    session:close()
+  end
+
+  t.it("records the query on close and recalls it in a later session", function()
+    record("hist-record", "alpha")
+    local session = named_session("hist-record")
+    t.eq("alpha", session:history_prev())
+    t.eq(nil, session:history_prev(), "stops at the oldest entry")
+  end)
+
+  t.it("keeps history separate per source name", function()
+    record("hist-a", "from a")
+    record("hist-b", "from b")
+    local session = named_session("hist-a")
+    t.eq("from a", session:history_prev())
+  end)
+
+  t.it("walks back and forward, restoring the in-progress query", function()
+    record("hist-walk", "one")
+    record("hist-walk", "two")
+    local session = named_session("hist-walk")
+    session:set_query("dra") -- typed but not submitted
+    t.eq("two", session:history_prev())
+    t.eq("one", session:history_prev())
+    t.eq(nil, session:history_prev())
+    t.eq("two", session:history_next())
+    t.eq("dra", session:history_next(), "past the newest entry restores the stash")
+    t.eq(nil, session:history_next())
+  end)
+
+  t.it("editing the query ends the walk; recalling does not", function()
+    record("hist-edit", "one")
+    record("hist-edit", "two")
+    local session = named_session("hist-edit")
+    t.eq("two", session:history_prev())
+    session:set_query("two") -- the UI echoes the recall back; the walk continues
+    t.eq("one", session:history_prev())
+    session:set_query("one!") -- an edit ends the walk
+    t.eq("two", session:history_prev(), "restarts from the newest entry")
+    t.eq("one", session:history_prev())
+    t.eq("two", session:history_next())
+    t.eq("one!", session:history_next(), "the stash holds the edited query")
+  end)
+
+  t.it("skips blank queries and moves duplicates to the newest slot", function()
+    record("hist-dedupe", "dup")
+    record("hist-dedupe", "other")
+    record("hist-dedupe", "dup")
+    record("hist-dedupe", "  ")
+    local session = named_session("hist-dedupe")
+    t.eq("dup", session:history_prev())
+    t.eq("other", session:history_prev())
+    t.eq(nil, session:history_prev())
+  end)
+end)

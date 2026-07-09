@@ -214,6 +214,13 @@ Built-in actions are `edit`, `split`, `vsplit`, `tabedit`, `quickfix`, and
 `close`. Navigation actions are `next`, `previous`, `page_down`, `page_up`,
 `scroll_down`, `scroll_up`, `first`, `last`, `toggle`, and `toggle_all`.
 
+History actions are `history_prev` and `history_next`, on `<C-p>` and `<C-n>`
+by default. A picker records its query when it closes — picking an item with
+`<CR>` and quitting with `<Esc>` both count — and `history_prev` recalls those
+queries in later pickers. History is kept per source name and lasts for the
+Neovim session. Stepping past the newest entry with `history_next` restores
+whatever was typed before the recall started.
+
 Action functions receive the original emitted items:
 
 ```lua

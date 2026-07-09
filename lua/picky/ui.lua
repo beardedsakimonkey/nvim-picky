@@ -250,12 +250,31 @@ function UI:_setup_keymaps()
           self.session:move(vim.api.nvim_win_get_height(self.results_win))
         elseif rhs == "page_up" then
           self.session:move(-vim.api.nvim_win_get_height(self.results_win))
+        elseif rhs == "history_prev" or rhs == "history_next" then
+          self:_recall(rhs)
         else
           self.session:run_action(rhs)
         end
       end, { buffer = self.prompt_buf, nowait = true })
     end
   end
+end
+
+---Show a query recalled from the source's history in the prompt. The buffer
+---write reaches the session through the same on_lines path as typing.
+---@param action "history_prev"|"history_next"
+function UI:_recall(action)
+  local query
+  if action == "history_prev" then
+    query = self.session:history_prev()
+  else
+    query = self.session:history_next()
+  end
+  if query == nil then
+    return
+  end
+  vim.api.nvim_buf_set_lines(self.prompt_buf, 0, -1, false, { query })
+  pcall(vim.api.nvim_win_set_cursor, self.prompt_win, { 1, #query })
 end
 
 function UI:_setup_autocmds()

@@ -266,6 +266,40 @@ t.describe("ui", function()
     t.eq(true, session.closed)
   end)
 
+  t.it("recalls recorded queries into the prompt with <C-p> and <C-n>", function()
+    -- A unique source name keeps this test's history bucket isolated from the
+    -- "Items" sources the other tests close.
+    local function open_named()
+      local source = picky.sources.items({ { id = 1, text = "alpha" }, { id = 2, text = "beta" } })
+      source.name = "HistoryUI"
+      return picky.open({ source = source })
+    end
+    local function press(key)
+      vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(key, true, false, true), "x", false)
+    end
+
+    local session = open_named()
+    set_prompt("beta")
+    t.wait(function()
+      return session.query == "beta"
+    end)
+    session:close()
+
+    session = open_named()
+    press("<C-p>")
+    t.wait(function()
+      return session.query == "beta"
+    end)
+    t.eq({ "beta" }, vim.api.nvim_buf_get_lines(vim.api.nvim_get_current_buf(), 0, 1, false))
+    t.eq({ "beta" }, result_lines())
+    press("<C-n>") -- past the newest entry: back to the empty in-progress query
+    t.wait(function()
+      return session.query == ""
+    end)
+    t.eq({ "alpha", "beta" }, result_lines())
+    session:close()
+  end)
+
   t.it("closes when the source window closes", function()
     local session = open_static({ { id = 1, text = "one" } })
     vim.api.nvim_win_close(vim.api.nvim_get_current_win(), true)

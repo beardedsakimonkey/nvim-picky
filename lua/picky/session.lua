@@ -15,6 +15,7 @@
 ---makes any slice still queued from an older query a no-op, so a query change
 ---abandons the in-flight match instead of waiting for it.
 
+local history = require("picky.history")
 local matcher = require("picky.matcher")
 local query_parser = require("picky.query")
 
@@ -41,6 +42,9 @@ local query_parser = require("picky.query")
 ---@field match_scheduled boolean whether a continuation slice is queued
 ---@field auto_id number
 ---@field timer any? debounce timer (vim.uv timer handle)
+---@field history_pos number? index into the source's history while a recall walk is active
+---@field history_stash string? in-progress query stashed when the walk started
+---@field history_recall string? query just recalled, so set_query can tell a recall from typing
 ---@field on_update fun()
 local Session = {}
 Session.__index = Session
@@ -121,6 +125,9 @@ function M.new(opts)
     match_scheduled = false,
     auto_id = 0,
     timer = nil,
+    history_pos = nil,
+    history_stash = nil,
+    history_recall = nil,
   }, Session)
   return self
 end
@@ -277,11 +284,69 @@ function Session:_fix_active()
   self.active_id = first and self.items[first.index].id or nil
 end
 
+---History bucket for a session: per source name, so recalled queries carry
+---across pickers of the same source.
+---@param session PickySession
+---@return string
+local function history_key(session)
+  return session.source.name or ""
+end
+
+---Step to the next-older history entry and return it, or nil when there is
+---none. The first step stashes the in-progress query so `history_next` can
+---walk back to it. The caller displays the returned query; the session's own
+---query then follows through the normal `set_query` path.
+---@return string?
+function Session:history_prev()
+  local list = history.get(history_key(self))
+  local pos = self.history_pos == nil and #list or self.history_pos - 1
+  if pos < 1 then
+    return nil
+  end
+  if self.history_pos == nil then
+    self.history_stash = self.query
+  end
+  self.history_pos = pos
+  self.history_recall = list[pos]
+  return list[pos]
+end
+
+---Step to the next-newer history entry and return it. Stepping past the
+---newest entry ends the walk and returns the stashed in-progress query;
+---returns nil when no walk is active.
+---@return string?
+function Session:history_next()
+  if self.history_pos == nil then
+    return nil
+  end
+  local list = history.get(history_key(self))
+  local query
+  if self.history_pos < #list then
+    self.history_pos = self.history_pos + 1
+    query = list[self.history_pos]
+  else
+    query = self.history_stash or ""
+    self.history_pos = nil
+    self.history_stash = nil
+  end
+  self.history_recall = query
+  return query
+end
+
 ---@param query string
 function Session:set_query(query)
   if self.closed or query == self.query then
     return
   end
+  -- A recalled query arrives here through the same path as typing (the UI
+  -- writes the prompt buffer); `history_recall` tells the two apart. Any
+  -- other change means the user edited the query, which ends the history
+  -- walk — the next history_prev starts again from the newest entry.
+  if query ~= self.history_recall then
+    self.history_pos = nil
+    self.history_stash = nil
+  end
+  self.history_recall = nil
   local previous_query, previous_terms = self.query, self.terms
   self.query = query
   self.terms = query_parser.parse(query)
@@ -491,12 +556,16 @@ function Session:run_action(action)
   action(self:action_context())
 end
 
----Idempotent: stops the source, cancels timers, and notifies once.
+---Idempotent: records the query into history, stops the source, cancels
+---timers, and notifies once.
 function Session:close()
   if self.closed then
     return
   end
   self.closed = true
+  -- Every way out of the picker — picking an item, <Esc>, leaving the prompt —
+  -- funnels through here, so this is where a query becomes history.
+  history.add(history_key(self), self.query)
   local started = self.generation > 0
   self.generation = self.generation + 1
   if started and self.source.stop then
