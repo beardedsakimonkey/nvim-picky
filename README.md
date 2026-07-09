@@ -5,8 +5,9 @@ A small, dependency-free picker for Neovim built around structured items.
 ## Requirements
 
 - Neovim 0.12 or newer
-- [`ripgrep`](https://github.com/BurntSushi/ripgrep) for
-  `picky.sources.grep()` and live help search
+- `grep` for `picky.sources.grep()` (normally provided by the operating system);
+  [`ripgrep`](https://github.com/BurntSushi/ripgrep) is used when available and
+  is still required for live help search
 - `git` for `picky.sources.git_status()` and `picky.sources.git_log()`
 - [`nvim-web-devicons`](https://github.com/nvim-tree/nvim-web-devicons)
   (optional) for file-type icons
@@ -82,7 +83,7 @@ picky.files({
   ignore = { ".git", "node_modules" },
 })
 
--- Structured ripgrep locations.
+-- Structured text-search locations (ripgrep when available, otherwise grep).
 picky.grep({
   pattern = "update_input",
   cwd = vim.fn.getcwd(),
@@ -101,9 +102,12 @@ picky.symbols()
 picky.symbols({ workspace = true })
 ```
 
-`grep()` accepts additional `rg` arguments through `args` and `executable` to
-override the command name; `git_status()` and `git_log()` accept `args` and
-`executable` the same way.
+`grep()` prefers `rg` when available and falls back to `grep`. Set
+`executable = "rg"` or `executable = "grep"` to choose explicitly. `args`
+contains additional arguments for the selected executable. The fallback uses
+extended grep regular expressions (`grep -E`) and the selected grep
+implementation's normal recursive-search behavior.
+`git_status()` and `git_log()` also accept `args` and `executable`.
 
 `symbols()` also accepts `kinds` (SymbolKind names to keep, e.g.
 `{ "Function", "Method" }`), `bufnr` to pick a buffer other than the current

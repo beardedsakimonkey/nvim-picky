@@ -177,6 +177,7 @@ end)
 t.describe("sources.grep", function()
   t.it("builds the rg argument array for a fixed pattern", function()
     local source = sources.grep({
+      executable = "rg",
       colors = false,
       pattern = "update_input",
       fixed_strings = true,
@@ -200,7 +201,7 @@ t.describe("sources.grep", function()
   end)
 
   t.it("greps the query when no pattern is given", function()
-    local source = sources.grep()
+    local source = sources.grep({ executable = "rg" })
     t.eq("query", source.refresh)
     t.eq(true, source._opts.skip_empty_query)
     local cmd = source._opts.command({ query = "needle", cwd = "." })
@@ -208,7 +209,7 @@ t.describe("sources.grep", function()
   end)
 
   t.it("colorizes matches by default, keeping the location fields", function()
-    local source = sources.grep()
+    local source = sources.grep({ executable = "rg" })
     local cmd = source._opts.command({ query = "x", cwd = "." })
     t.eq("--color=always", cmd[4])
     -- rg --vimgrep --color=always: path/line/col then a colored match in text.
@@ -223,6 +224,87 @@ t.describe("sources.grep", function()
     t.eq(1, #item.highlights)
     t.eq(match_col, item.highlights[1].from)
     t.eq(match_col + #"NEEDLE", item.highlights[1].to)
+  end)
+
+  t.it("builds portable grep arguments and emulates smart case", function()
+    local source = sources.grep({
+      executable = "grep",
+      colors = false,
+      pattern = "update_input",
+      fixed_strings = true,
+      smart_case = true,
+      args = { "--exclude=generated" },
+      paths = { "lua" },
+    })
+    local cmd = source._opts.command({ query = "", cwd = "." })
+    t.eq({
+      "grep",
+      "-r",
+      "-n",
+      "-H",
+      "-I",
+      "-F",
+      "-i",
+      "--exclude=generated",
+      "-e",
+      "update_input",
+      "--",
+      "lua",
+    }, cmd)
+  end)
+
+  t.it("parses grep locations and colored match columns", function()
+    local source = sources.grep({ executable = "grep" })
+    local cmd = source._opts.command({ query = "NEEDLE", cwd = "." })
+    t.eq("grep", cmd[1])
+    t.eq("--color=always", cmd[7])
+
+    local line = "a.lua:12:before \27[1m\27[31mNEEDLE\27[0m after"
+    local item = assert(source._opts.parse(line, { query = "NEEDLE", cwd = "." }))
+    t.eq("a.lua", item.path)
+    t.eq(12, item.lnum)
+    t.eq(8, item.col)
+    t.eq("before NEEDLE after", item.text)
+    local match_col = #item.path + 2 + #"before "
+    t.eq(1, #item.highlights)
+    t.eq(match_col, item.highlights[1].from)
+    t.eq(match_col + #"NEEDLE", item.highlights[1].to)
+  end)
+
+  t.it("derives fixed-string columns from uncolored grep output", function()
+    local source = sources.grep({
+      executable = "grep",
+      colors = false,
+      pattern = "needle",
+      fixed_strings = true,
+      smart_case = true,
+    })
+    local item = assert(source._opts.parse("a.lua:3:before NEEDLE after", { query = "", cwd = "." }))
+    t.eq(8, item.col)
+    t.eq(nil, item.highlights)
+  end)
+
+  t.it("falls back to grep when rg is unavailable", function()
+    local executable = vim.fn.executable
+    vim.fn.executable = function(name)
+      t.eq("rg", name)
+      return 0
+    end
+    local ok, source = pcall(sources.grep, { colors = false })
+    vim.fn.executable = executable
+    if not ok then
+      error(source)
+    end
+    local cmd = source._opts.command({ query = "needle", cwd = "." })
+    t.eq("grep", cmd[1])
+    t.eq("-E", cmd[6])
+  end)
+
+  t.it("selects grep arguments from the executable name", function()
+    local source = sources.grep({ executable = "/usr/bin/grep", colors = false })
+    local cmd = source._opts.command({ query = "needle", cwd = "." })
+    t.eq("/usr/bin/grep", cmd[1])
+    t.eq("-r", cmd[2])
   end)
 end)
 
