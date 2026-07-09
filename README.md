@@ -5,9 +5,9 @@ A small, dependency-free picker for Neovim built around structured items.
 ## Requirements
 
 - Neovim 0.12 or newer
-- `grep` for `picky.sources.grep()` (normally provided by the operating system);
-  [`ripgrep`](https://github.com/BurntSushi/ripgrep) is used when available and
-  is still required for live help search
+- `grep` for `picky.sources.grep()` and live help search (normally provided by
+  the operating system); [`ripgrep`](https://github.com/BurntSushi/ripgrep) is
+  used when available
 - `git` for `picky.sources.git_status()` and `picky.sources.git_log()`
 - [`nvim-web-devicons`](https://github.com/nvim-tree/nvim-web-devicons)
   (optional) for file-type icons

@@ -208,6 +208,19 @@ t.describe("sources.grep", function()
     t.eq("needle", cmd[#cmd - 1])
   end)
 
+  t.it("transforms parsed matches", function()
+    local source = sources.grep({
+      executable = "rg",
+      colors = false,
+      transform = function(item, ctx)
+        item.label = ctx.query .. ":" .. item.text
+        return item
+      end,
+    })
+    local item = assert(source._opts.parse("a.lua:12:5:some text", { query = "needle", cwd = "." }))
+    t.eq("needle:some text", item.label)
+  end)
+
   t.it("colorizes matches by default, keeping the location fields", function()
     local source = sources.grep({ executable = "rg" })
     local cmd = source._opts.command({ query = "x", cwd = "." })
@@ -823,11 +836,35 @@ t.describe("sources.help", function()
   end)
 
   t.it("decorates live matches with a doc-file tag", function()
-    local source = sources.help({ live = true })
+    local source = sources.help({ live = true, executable = "rg" })
+    t.eq("Help", source.name)
     t.eq("query", source.refresh)
-    local item = assert(source._opts.parse("/runtime/doc/motion.txt:12:3:some text"))
+    local cmd = assert(source._opts.command({ query = "needle", cwd = "." }))
+    t.eq({ "rg", "--vimgrep", "--no-heading", "--color=never", "--smart-case", "--" },
+      vim.list_slice(cmd, 1, 6))
+    local item = assert(source._opts.parse("/runtime/doc/motion.txt:12:3:some text", { query = "needle", cwd = "." }))
     t.eq("motion.txt", item.tag)
     t.eq(12, item.lnum)
     t.eq({ "text", "tag" }, item.fields)
+  end)
+
+  t.it("uses the plain grep fallback for live matches", function()
+    local executable = vim.fn.executable
+    vim.fn.executable = function(name)
+      t.eq("rg", name)
+      return 0
+    end
+    local ok, source = pcall(sources.help, { live = true })
+    vim.fn.executable = executable
+    if not ok then
+      error(source)
+    end
+    local ctx = { query = "needle", cwd = "." }
+    local cmd = source._opts.command(ctx)
+    t.eq("grep", cmd[1])
+    t.eq("-E", cmd[6])
+    local item = assert(source._opts.parse("/runtime/doc/motion.txt:12:some text", ctx))
+    t.eq("motion.txt", item.tag)
+    t.eq(12, item.lnum)
   end)
 end)

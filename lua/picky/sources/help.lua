@@ -1,12 +1,11 @@
 ---Help tags, or live text search through runtime documentation.
 ---
 ---The default source reads every doc/tags file on the runtime path. With
----`live = true` ripgrep searches the doc directories per query; emitted
+---`live = true` the grep source searches the doc directories per query; emitted
 ---items carry `tag` (the doc file's basename, which `:help` accepts) plus
 ---`path`/`lnum` so opening jumps to the matched line.
 
-local command = require("picky.sources.command")
-local parsers = require("picky.parsers")
+local grep = require("picky.sources.grep")
 
 ---@param ctx PickySourceContext
 local function emit_tags(ctx)
@@ -31,7 +30,7 @@ end
 
 ---@class PickyHelpOpts
 ---@field live boolean?
----@field executable string? defaults to "rg" (live only)
+---@field executable string? defaults to rg when available, otherwise grep (live only)
 ---@field debounce number?
 
 ---@param opts PickyHelpOpts?
@@ -50,23 +49,13 @@ return function(opts)
   end
 
   local doc_dirs = vim.api.nvim_get_runtime_file("doc", true)
-  return command({
-    name = "Help",
-    refresh = "query",
+  local source = grep({
     debounce = opts.debounce,
-    skip_empty_query = true,
-    success_codes = { 0, 1 },
-    command = function(ctx)
-      local cmd = { opts.executable or "rg", "--vimgrep", "--no-heading", "--color=never", "--smart-case", "--" }
-      cmd[#cmd + 1] = ctx.query
-      vim.list_extend(cmd, doc_dirs)
-      return cmd
-    end,
-    parse = function(line)
-      local item = parsers.vimgrep(line)
-      if not item then
-        return nil
-      end
+    executable = opts.executable,
+    paths = doc_dirs,
+    smart_case = true,
+    colors = false,
+    transform = function(item)
       item.tag = vim.fs.basename(item.path)
       item.display = {
         { field = "tag", hl = "Comment" },
@@ -77,4 +66,6 @@ return function(opts)
       return item
     end,
   })
+  source.name = "Help"
+  return source
 end

@@ -1,6 +1,6 @@
 ---Generic command source: runs an argument-array command and parses its
----output lines into items. All specialized command sources (files, grep,
----live help) are thin wrappers over this.
+---output lines into items. Specialized command sources such as grep are thin
+---wrappers over this.
 
 local process = require("picky.process")
 

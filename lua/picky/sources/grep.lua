@@ -16,6 +16,7 @@ local parsers = require("picky.parsers")
 ---@field executable string? defaults to rg when available, otherwise grep
 ---@field debounce number?
 ---@field colors boolean? show match coloring in the result window (default true)
+---@field transform fun(item: PickyItem, ctx: PickySourceContext): PickyItem? transform each parsed match
 
 ---@param executable string
 ---@return boolean
@@ -135,6 +136,19 @@ return function(opts)
   local colors = opts.colors ~= false
   local executable = opts.executable or (vim.fn.executable("rg") == 1 and "rg" or "grep")
   local use_grep = is_grep(executable)
+  local parse = not use_grep and (colors and colored_vimgrep or parsers.vimgrep) or function(line, ctx)
+    local pattern = live and ctx.query or assert(opts.pattern)
+    return parse_grep(line, pattern, opts.fixed_strings, colors)
+  end
+  if opts.transform then
+    local base_parse = parse
+    parse = function(line, ctx)
+      local item = base_parse(line, ctx)
+      if item then
+        return opts.transform(item, ctx)
+      end
+    end
+  end
   return command({
     name = "Grep",
     cwd = opts.cwd,
@@ -176,9 +190,6 @@ return function(opts)
       vim.list_extend(cmd, opts.paths or { "." })
       return cmd
     end,
-    parse = not use_grep and (colors and colored_vimgrep or parsers.vimgrep) or function(line, ctx)
-      local pattern = live and ctx.query or assert(opts.pattern)
-      return parse_grep(line, pattern, opts.fixed_strings, colors)
-    end,
+    parse = parse,
   })
 end
