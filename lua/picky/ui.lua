@@ -2,13 +2,19 @@
 ---Rendering is virtualized: only the visible slice of matches is written to
 ---the result buffer on each update.
 
+local query_parser = require("picky.query")
+
 local M = {}
 
 local ns = vim.api.nvim_create_namespace("picky")
+-- Separate namespace for prompt operator highlights, so clearing them per
+-- keystroke can't wipe the prompt symbol or counter extmarks in `ns`.
+local ops_ns = vim.api.nvim_create_namespace("picky.operators")
 
 local links = {
   PickyMatch = "Special", -- matched characters
   PickyPrompt = "Comment", -- the "> " prompt symbol
+  PickyOperator = "Operator", -- query operators (', !, ^, trailing $) in the prompt
   PickyCounter = "Comment", -- the n/total counter
   PickySelected = "Visual", -- multi-selected rows
   PickyError = "ErrorMsg", -- source error text
@@ -229,6 +235,7 @@ function UI:open()
           return
         end
         local line = vim.api.nvim_buf_get_lines(self.prompt_buf, 0, 1, false)[1] or ""
+        self:_decorate_prompt(line)
         self.session:set_query(line)
       end)
       return self.closed
@@ -275,6 +282,20 @@ function UI:_recall(action)
   end
   vim.api.nvim_buf_set_lines(self.prompt_buf, 0, -1, false, { query })
   pcall(vim.api.nvim_win_set_cursor, self.prompt_win, { 1, #query })
+end
+
+---Highlight the query operators (', !, ^, and an anchoring trailing $) in
+---the prompt line.
+---@param line string
+function UI:_decorate_prompt(line)
+  vim.api.nvim_buf_clear_namespace(self.prompt_buf, ops_ns, 0, -1)
+  for _, span in ipairs(query_parser.operators(line)) do
+    vim.api.nvim_buf_set_extmark(self.prompt_buf, ops_ns, 0, span.from, {
+      end_col = span.to,
+      hl_group = "PickyOperator",
+      strict = false,
+    })
+  end
 end
 
 function UI:_setup_autocmds()

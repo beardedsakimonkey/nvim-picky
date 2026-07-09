@@ -50,3 +50,38 @@ t.describe("query.parse", function()
     t.eq(true, query.parse("'Foo")[1].case_sensitive)
   end)
 end)
+
+t.describe("query.operators", function()
+  t.it("finds no operators in fuzzy terms", function()
+    t.eq({}, query.operators("foo bar"))
+    t.eq({}, query.operators(""))
+    t.eq({}, query.operators(nil))
+  end)
+
+  t.it("finds leading operators", function()
+    t.eq({ { from = 0, to = 1 } }, query.operators("'foo"))
+    t.eq({ { from = 0, to = 1 } }, query.operators("!foo"))
+    t.eq({ { from = 0, to = 1 } }, query.operators("^foo"))
+  end)
+
+  t.it("finds anchoring trailing dollars", function()
+    t.eq({ { from = 4, to = 5 } }, query.operators(".lua$"))
+  end)
+
+  t.it("finds both operators of a whole-field term", function()
+    t.eq({ { from = 0, to = 1 }, { from = 4, to = 5 } }, query.operators("^foo$"))
+  end)
+
+  t.it("keeps literal dollars unhighlighted", function()
+    t.eq({}, query.operators("$"))
+    t.eq({ { from = 0, to = 1 } }, query.operators("'foo$"))
+    t.eq({ { from = 0, to = 1 } }, query.operators("!foo$"))
+  end)
+
+  t.it("uses query-relative spans across multiple terms", function()
+    t.eq(
+      { { from = 0, to = 1 }, { from = 5, to = 6 }, { from = 13, to = 14 } },
+      query.operators("'foo ^bar baz$")
+    )
+  end)
+end)

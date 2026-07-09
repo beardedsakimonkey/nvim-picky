@@ -277,6 +277,7 @@ vim.api.nvim_set_hl(0, "PickyDir", { link = "NonText" })
 | `PickyBufVisible` | `Statement` | name of a buffer on screen in a window |
 | `PickySelected` | `Visual`      | multi-selected rows                   |
 | `PickyPrompt`   | `Comment`     | the `>` prompt symbol                 |
+| `PickyOperator` | `Operator`    | query operators typed in the prompt   |
 | `PickyCounter`  | `Comment`     | the `n/total` counter                 |
 | `PickyError`    | `ErrorMsg`    | source error text                     |
 | `PickyEmpty`    | `Comment`     | the `no results` placeholder          |
