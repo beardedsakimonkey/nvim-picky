@@ -49,6 +49,28 @@ t.describe("icons.annotate", function()
     end)
   end)
 
+  t.it("uses a directory icon instead of the provider's file fallback", function()
+    local calls = 0
+    local provider = {
+      get_icon = function()
+        calls = calls + 1
+        return GLYPH, "DevIconLua"
+      end,
+    }
+    with_provider(provider, true, function()
+      local item = icons.annotate({
+        text = "project",
+        display = { { field = "text" } },
+      }, "project", "directory")
+      t.eq({
+        { text = "", hl = "PickyDir" },
+        { text = " " },
+        { field = "text" },
+      }, item.display)
+      t.eq(0, calls)
+    end)
+  end)
+
   t.it("shifts line-relative highlights past the icon prefix", function()
     with_provider(fake, true, function()
       local item = icons.annotate({

@@ -11,8 +11,9 @@ local M = {}
 ---searchable, so matches highlight on whichever component they land in while
 ---full-path queries still match.
 ---@param path string absolute filesystem path
+---@param kind string? libuv filesystem type, used to select directory icons
 ---@return PickyItem
-function M.file_item(path)
+function M.file_item(path, kind)
   local rel = vim.fn.fnamemodify(path, ":~:.")
   local name = vim.fn.fnamemodify(rel, ":t")
   local dir = vim.fn.fnamemodify(rel, ":h")
@@ -39,7 +40,7 @@ function M.file_item(path)
       },
     }
   end
-  return require("picky.icons").annotate(item, path)
+  return require("picky.icons").annotate(item, path, kind)
 end
 
 ---A colorized line, e.g. a command run with `--color=always`. ANSI escape

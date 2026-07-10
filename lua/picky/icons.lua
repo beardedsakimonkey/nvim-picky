@@ -6,6 +6,8 @@ local config = require("picky.config")
 
 local M = {}
 
+local DIRECTORY_ICON = ""
+
 ---`nil` until first probed, then the devicons module or `false` if unavailable.
 local provider
 
@@ -24,13 +26,18 @@ function M._set_provider(p)
   provider = p
 end
 
----Glyph and highlight group for a filename or path.
+---Glyph and highlight group for a filename or path. nvim-web-devicons does not
+---provide directory icons, so directories use a matching built-in glyph.
 ---@param name string
+---@param kind string? libuv filesystem type
 ---@return string?, string?
-function M.get(name)
+function M.get(name, kind)
   local mod = devicons()
   if not mod then
     return nil
+  end
+  if kind == "directory" then
+    return DIRECTORY_ICON, "PickyDir"
   end
   local base = name:match("[^/]*$") or name
   local ext = base:match("%.([^.]+)$") or ""
@@ -43,8 +50,9 @@ end
 ---inactive, no glyph is found, or the display is an opaque string.
 ---@param item PickyItem
 ---@param name string? lookup name; defaults to item.path/name/text
+---@param kind string? libuv filesystem type
 ---@return PickyItem
-function M.annotate(item, name)
+function M.annotate(item, name, kind)
   if not config.options.icons then
     return item
   end
@@ -56,7 +64,7 @@ function M.annotate(item, name)
   if type(name) ~= "string" or name == "" then
     return item
   end
-  local icon, hl = M.get(name)
+  local icon, hl = M.get(name, kind)
   if not icon then
     return item
   end

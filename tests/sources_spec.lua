@@ -570,6 +570,32 @@ t.describe("sources.oldfiles", function()
     vim.fn.delete(exists_a)
     vim.fn.delete(exists_b)
   end)
+
+  t.it("marks directory entries for directory icon rendering", function()
+    local dir = vim.fn.tempname()
+    vim.fn.mkdir(dir)
+    vim.v.oldfiles = { dir }
+
+    local saved = package.loaded["picky.icons"]
+    local kind
+    package.loaded["picky.icons"] = {
+      annotate = function(item, _, item_kind)
+        kind = item_kind
+        return item
+      end,
+    }
+    local ok, result = pcall(function()
+      return run_source(sources.oldfiles())
+    end)
+    package.loaded["picky.icons"] = saved
+    vim.fn.delete(dir, "d")
+
+    if not ok then
+      error(result, 0)
+    end
+    t.eq("directory", kind)
+    t.eq(dir, result.items[1].path)
+  end)
 end)
 
 t.describe("sources.symbols", function()
