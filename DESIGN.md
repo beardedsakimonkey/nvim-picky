@@ -191,7 +191,7 @@ can be introduced only when a real source requires it.
 ### Common Item Fields
 
 Actions inspect source fields directly. Picky should recognize a small set of
-common keys so built-in actions and future previews work across sources:
+common keys so built-in actions and the preview pane work across sources:
 
 Examples:
 
@@ -315,6 +315,7 @@ The source contract is:
 ---@field cwd string?
 ---@field refresh "once"|"query"?
 ---@field debounce number?
+---@field preview boolean|fun(self, item: PickyItem, ctx: PickyPreviewContext): boolean??
 ---@field start fun(self, ctx: PickySourceContext)
 ---@field stop fun(self)?
 ```
@@ -324,6 +325,9 @@ The source contract is:
 - `refresh = "once"` is the default.
 - `refresh = "query"` stops and restarts the source when the query changes.
 - `debounce` overrides the global query-restart delay for that source.
+- `preview = false` opens the picker without a preview pane; a function renders
+  custom previews into a provided scratch buffer, returning truthy when handled
+  or falsy to fall through to the built-in common-field dispatch.
 - `stop()` cancels processes and releases resources before a restart or close.
 
 Using one restartable lifecycle avoids separate `start()` and `update()` paths.
@@ -477,6 +481,15 @@ picky.setup({
     shrink = false,
     input_position = "top",
   },
+  preview = {
+    enabled = true,
+    width = 0.5,
+    min_width = 40,
+    max_file_bytes = 512 * 1024,
+    max_lines = 1000,
+    treesitter = true,
+    debounce = 40,
+  },
   keymaps = {
     ["<Esc>"] = "close",
     ["<CR>"] = "edit",
@@ -504,6 +517,12 @@ window grows and shrinks to fit the number of matches, down to a single line.
 The box stays centered at its full height, and the prompt stays anchored (at the
 top, or — for `input_position = "bottom"` — at the bottom of that envelope), so
 only the result window's free edge moves as matches narrow.
+
+`preview` is a top-level table rather than part of `window` because it mixes
+layout (`width`, `min_width`) with content policy (`max_file_bytes`,
+`max_lines`, `treesitter`, `debounce`). `window.width` keeps meaning the
+picker's total footprint: the preview pane takes its share out of that width,
+and toggling it off gives the space back to the result list.
 
 Per-picker options override global options:
 
@@ -599,6 +618,32 @@ The UI should explicitly render:
 Rendering should use extmarks for highlights and metadata where practical. Window
 autocommands must be scoped to the picker's own windows and cleaned up through a
 single idempotent close path.
+
+### Preview Pane
+
+An optional third non-focusable window sits to the right of the prompt/results
+column and follows the active item. Its content resolution lives in its own
+module (`preview.lua`); the UI owns only the window, its geometry, and the
+refresh timing.
+
+- The pane's visibility is decided per picker, not per item: config, a source's
+  `preview = false`, and a minimum-width guard (small editors degrade to the
+  plain two-window form). A non-previewable active item shows a placeholder
+  instead of collapsing the pane, so the layout never jitters per keystroke.
+- Item resolution reuses the same common fields as the opening actions —
+  `bufnr`, `commit`, `path` with `lnum`/`col`, `tag` — with one deliberate
+  difference: `path` outranks `tag`, so helpgrep locations preview their exact
+  matched line.
+- Refreshes are debounced and keyed by the active item id, so streaming match
+  batches that keep the same top item cost nothing and held-down navigation
+  coalesces into one load.
+- Preview buffers are unlisted scratch copies, cached per item id for the
+  lifetime of one picker and deleted on close. Real buffers are copied, never
+  mounted, and no preview buffer ever gets a real `filetype` — highlighting
+  attaches through `vim.treesitter.start()` or `'syntax'` directly — so
+  `FileType` autocmds (LSP, plugins) cannot reach them. Commit buffers are the
+  exception: they come from the actions module's name-keyed cache and outlive
+  the picker, exactly as when a commit is opened without a preview.
 
 ## Process Execution
 

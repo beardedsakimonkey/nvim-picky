@@ -103,6 +103,10 @@ M.split = opener("split")
 M.vsplit = opener("vsplit")
 M.tabedit = opener("tabedit")
 
+-- Shared with the previewer, which resolves the same item fields; not actions.
+M.resolve_path = resolve_path
+M.commit_buffer = commit_buffer
+
 ---@param ctx PickyActionContext
 function M.quickfix(ctx)
   local entries = {}

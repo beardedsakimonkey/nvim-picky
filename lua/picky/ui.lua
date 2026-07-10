@@ -23,6 +23,7 @@ local links = {
   PickyNormal = "NormalFloat", -- result/prompt window text and background
   PickyBorder = "FloatBorder", -- result/prompt window border
   PickyDir = "PickyMuted", -- dimmed directory / path context
+  PickyPreviewLine = "Visual", -- the target line of a location item in the preview
   PickyKind = "Type", -- symbol kind glyphs
   PickyGitHash = "Identifier", -- commit hashes
   PickyBufVisible = "Statement", -- name of a buffer on screen in a window
@@ -88,6 +89,29 @@ local function render_line(item)
   return table.concat(parts), meta
 end
 
+---A short window title for the previewed item, truncated from the left so
+---the most specific part (a path's tail) survives.
+---@param item PickyItem?
+---@param max number
+---@return string
+local function preview_title(item, max)
+  if item == nil then
+    return ""
+  end
+  local title = item.tag
+    or (item.commit and tostring(item.commit):sub(1, 12))
+    or item.rel
+    or item.path
+    or item.text
+    or ""
+  title = tostring(title)
+  local chars = vim.fn.strchars(title)
+  if chars > max then
+    title = "…" .. vim.fn.strcharpart(title, chars - max + 1)
+  end
+  return title
+end
+
 ---Byte length of the UTF-8 character starting at byte `b`.
 local function char_len(b)
   if b == nil or b < 0x80 then
@@ -128,10 +152,25 @@ function UI:layout()
   local col = math.max(math.floor((vim.o.columns - total_width - pad) / 2), 0)
   local row = math.max(math.floor((vim.o.lines - total_height) / 2), 0)
 
+  -- Split the total width between the prompt/results column and the preview
+  -- pane. The pane is dropped entirely when either side would end up too
+  -- narrow to be useful, so the picker degrades to the plain two-window form.
+  local left_width, preview_width = total_width, 0
+  if self.preview_wanted then
+    preview_width = resolve_dimension(self.config.preview.width, total_width)
+    left_width = total_width - preview_width - pad
+    if preview_width < self.config.preview.min_width or left_width < 30 then
+      left_width, preview_width = total_width, 0
+    end
+  end
+
   return {
     border = border,
     pad = pad,
     width = total_width,
+    left_width = left_width,
+    preview_width = preview_width,
+    preview_visible = preview_width > 0,
     col = col,
     base_row = row,
     max_results = max_results,
@@ -153,6 +192,13 @@ function UI:_geometry(layout, results_height)
   return {
     prompt = { row = prompt_row, col = layout.col },
     results = { row = results_row, col = layout.col },
+    -- The pane spans the full envelope height regardless of input_position
+    -- and of the result window shrinking; a tall preview stays useful.
+    preview = {
+      row = layout.base_row,
+      col = layout.col + layout.left_width + layout.pad,
+      height = layout.max_results + 1 + layout.pad,
+    },
   }
 end
 
@@ -171,14 +217,39 @@ function UI:_fit(count)
     relative = "editor",
     row = geo.results.row,
     col = geo.results.col,
-    width = layout.width,
+    width = layout.left_width,
     height = desired,
     border = layout.border,
     title = self.session.source.name,
   })
 end
 
+---Open the preview float to the right of the prompt/results column. Starts on
+---a throwaway buffer; the first refresh swaps in real content.
+function UI:_open_preview()
+  local layout = self.layout
+  local geo = self:_geometry(layout, self.results_height)
+  self.preview = self.preview or require("picky.preview").new(self.config)
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.bo[buf].bufhidden = "wipe"
+  self.preview_win = vim.api.nvim_open_win(buf, false, {
+    relative = "editor",
+    row = geo.preview.row,
+    col = geo.preview.col,
+    width = layout.preview_width,
+    height = geo.preview.height,
+    border = layout.border,
+    style = "minimal",
+    focusable = false,
+  })
+  vim.w[self.preview_win].picky_preview = true
+  vim.wo[self.preview_win].wrap = false
+  vim.wo[self.preview_win].winhighlight = winhighlight
+  self.last_previewed_id = nil
+end
+
 function UI:open()
+  self.preview_wanted = self.config.preview.enabled and self.session.source.preview ~= false
   local layout = self:layout()
   self.layout = layout
   -- Open at full height; render shrinks the result window to fit once matches
@@ -193,7 +264,7 @@ function UI:open()
     relative = "editor",
     row = geo.results.row,
     col = geo.results.col,
-    width = layout.width,
+    width = layout.left_width,
     height = self.results_height,
     border = layout.border,
     style = "minimal",
@@ -210,12 +281,16 @@ function UI:open()
     relative = "editor",
     row = geo.prompt.row,
     col = geo.prompt.col,
-    width = layout.width,
+    width = layout.left_width,
     height = 1,
     border = layout.border,
     style = "minimal",
   })
   vim.wo[self.prompt_win].winhighlight = winhighlight
+
+  if layout.preview_visible then
+    self:_open_preview()
+  end
 
   vim.api.nvim_buf_set_extmark(self.prompt_buf, ns, 0, 0, {
     virt_text = { { "> ", "PickyPrompt" } },
@@ -259,12 +334,73 @@ function UI:_setup_keymaps()
           self.session:move(-vim.api.nvim_win_get_height(self.results_win))
         elseif rhs == "history_prev" or rhs == "history_next" then
           self:_recall(rhs)
+        elseif rhs == "toggle_preview" then
+          self:_toggle_preview()
+        elseif rhs == "preview_scroll_down" or rhs == "preview_scroll_up" then
+          self:_scroll_preview(rhs == "preview_scroll_down" and 1 or -1)
         else
           self.session:run_action(rhs)
         end
       end, { buffer = self.prompt_buf, nowait = true })
     end
   end
+end
+
+---Show or hide the preview pane, reflowing the prompt/results column into the
+---freed or reclaimed width. A no-op when the source opted out or the picker is
+---too narrow for a pane.
+function UI:_toggle_preview()
+  if self.session.source.preview == false then
+    return
+  end
+  self.preview_wanted = not self.preview_wanted
+  -- `self.layout` holds the cached table and shadows the method.
+  local layout = UI.layout(self)
+  if self.preview_wanted and not layout.preview_visible then
+    self.preview_wanted = false
+    return
+  end
+  self.layout = layout
+  local geo = self:_geometry(layout, self.results_height)
+  vim.api.nvim_win_set_config(self.prompt_win, {
+    relative = "editor",
+    row = geo.prompt.row,
+    col = geo.prompt.col,
+    width = layout.left_width,
+    height = 1,
+    border = layout.border,
+  })
+  vim.api.nvim_win_set_config(self.results_win, {
+    relative = "editor",
+    row = geo.results.row,
+    col = geo.results.col,
+    width = layout.left_width,
+    height = self.results_height,
+    border = layout.border,
+    title = self.session.source.name,
+  })
+  if self.preview_wanted then
+    self:_open_preview()
+    self:_refresh_preview()
+  elseif self.preview_win and vim.api.nvim_win_is_valid(self.preview_win) then
+    vim.api.nvim_win_close(self.preview_win, true)
+    self.preview_win = nil
+  end
+end
+
+---Scroll the preview window by half a page.
+---@param direction 1|-1
+function UI:_scroll_preview(direction)
+  local win = self.preview_win
+  if not (win and vim.api.nvim_win_is_valid(win)) then
+    return
+  end
+  vim.api.nvim_win_call(win, function()
+    -- \4 / \21 are <C-d> / <C-u>.
+    pcall(function()
+      vim.cmd("normal! " .. (direction > 0 and "\4" or "\21"))
+    end)
+  end)
 end
 
 ---Show a query recalled from the source's history in the prompt. The buffer
@@ -386,6 +522,55 @@ function UI:render()
   end
 
   self:_render_counter(active, #matches)
+  self:_schedule_preview()
+end
+
+---Debounced preview refresh, keyed by the active item id: streaming match
+---batches that keep the same top item cost nothing, and held-down navigation
+---coalesces into one refresh.
+function UI:_schedule_preview()
+  if not (self.preview_win and vim.api.nvim_win_is_valid(self.preview_win)) then
+    return
+  end
+  local item = self.session:current_item()
+  if (item and item.id) == self.last_previewed_id then
+    return
+  end
+  if not self.preview_timer then
+    self.preview_timer = assert(vim.uv.new_timer())
+  end
+  self.preview_timer:stop()
+  self.preview_timer:start(self.config.preview.debounce or 40, 0, function()
+    vim.schedule(function()
+      self:_refresh_preview()
+    end)
+  end)
+end
+
+---Load the active item into the preview window and retitle it. Re-reads the
+---current item at call time, never trusting what was active at schedule time.
+function UI:_refresh_preview()
+  if self.closed or self.session.closed then
+    return
+  end
+  if not (self.preview_win and vim.api.nvim_win_is_valid(self.preview_win)) then
+    return
+  end
+  local item = self.session:current_item()
+  self.last_previewed_id = item and item.id or nil
+  self.preview:show(self.preview_win, item, self.session.source, self.session.cwd)
+  if self.layout.pad > 0 then
+    local geo = self:_geometry(self.layout, self.results_height)
+    vim.api.nvim_win_set_config(self.preview_win, {
+      relative = "editor",
+      row = geo.preview.row,
+      col = geo.preview.col,
+      width = self.layout.preview_width,
+      height = geo.preview.height,
+      border = self.layout.border,
+      title = preview_title(item, self.layout.preview_width - 2),
+    })
+  end
 end
 
 ---@param lnum number 0-based row in the result buffer
@@ -473,7 +658,12 @@ function UI:close()
   self.closed = true
   pcall(vim.api.nvim_del_augroup_by_id, self.augroup)
   vim.cmd.stopinsert()
-  for _, win in ipairs({ self.prompt_win, self.results_win }) do
+  if self.preview_timer then
+    self.preview_timer:stop()
+    self.preview_timer:close()
+    self.preview_timer = nil
+  end
+  for _, win in ipairs({ self.prompt_win, self.results_win, self.preview_win }) do
     if win and vim.api.nvim_win_is_valid(win) then
       pcall(vim.api.nvim_win_close, win, true)
     end
@@ -482,6 +672,9 @@ function UI:close()
     if buf and vim.api.nvim_buf_is_valid(buf) then
       pcall(vim.api.nvim_buf_delete, buf, { force = true })
     end
+  end
+  if self.preview then
+    self.preview:close()
   end
   if self.prev_win and vim.api.nvim_win_is_valid(self.prev_win) then
     pcall(vim.api.nvim_set_current_win, self.prev_win)

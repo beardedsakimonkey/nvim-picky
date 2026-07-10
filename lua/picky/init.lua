@@ -6,6 +6,7 @@ require("picky.types")
 ---source options; they mean what they do in `open()`.
 ---@class PickyPickerOpts
 ---@field window table?
+---@field preview table?
 ---@field keymaps table?
 ---@field debounce number?
 
@@ -17,7 +18,7 @@ require("picky.types")
 ---@field parsers PickyParsers
 ---@field actions PickyActions
 ---@field setup fun(opts?: PickyConfigOpts)
----@field open fun(opts: { source: PickySource, window: table?, keymaps: table?, debounce: number? }): PickySession
+---@field open fun(opts: { source: PickySource, window: table?, preview: table?, keymaps: table?, debounce: number? }): PickySession
 ---@field command fun(opts: PickyCommandOpts|PickyPickerOpts): PickySession
 ---@field files fun(opts?: PickyFilesOpts|PickyPickerOpts): PickySession
 ---@field buffers fun(opts?: PickyPickerOpts): PickySession
@@ -57,13 +58,14 @@ end
 
 ---Open a picker. The only picker entry point: static and live behavior are
 ---properties of the source.
----@param opts { source: PickySource, window: table?, keymaps: table?, debounce: number? }
+---@param opts { source: PickySource, window: table?, preview: table?, keymaps: table?, debounce: number? }
 ---@return PickySession
 function M.open(opts)
   opts = opts or {}
   assert(type(opts.source) == "table", "picky.open: opts.source (table) is required")
   local config = require("picky.config").merge({
     window = opts.window,
+    preview = opts.preview,
     keymaps = opts.keymaps,
     debounce = opts.debounce,
   })

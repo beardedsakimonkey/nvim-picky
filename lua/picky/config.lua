@@ -16,8 +16,27 @@ local M = {}
 ---@field shrink boolean?
 ---@field input_position "top"|"bottom"?
 
+---@class PickyPreviewConfig
+---@field enabled boolean Show the preview pane. Sources can still opt out via `source.preview = false`.
+---@field width number Preview pane width: a fraction of the picker width when <= 1, or an absolute number of columns when > 1.
+---@field min_width number Auto-hide the pane when it would be narrower than this many columns.
+---@field max_file_bytes number Files larger than this show a stub instead of their contents.
+---@field max_lines number Maximum number of lines loaded into a preview buffer.
+---@field treesitter boolean Try treesitter highlighting, falling back to regex syntax.
+---@field debounce integer Milliseconds after the active item changes before the preview refreshes.
+
+---@class PickyPreviewConfigOpts
+---@field enabled boolean?
+---@field width number?
+---@field min_width number?
+---@field max_file_bytes number?
+---@field max_lines number?
+---@field treesitter boolean?
+---@field debounce integer?
+
 ---@class PickyConfig
 ---@field window PickyWindowConfig Floating window appearance.
+---@field preview PickyPreviewConfig Preview pane behavior.
 ---@field keymaps table<string, string> Maps keys (in the input buffer) to action names.
 ---@field debounce integer Milliseconds to wait after a keystroke before refiltering.
 ---@field match_batch integer Items matched per event-loop slice for local (non-live) sources.
@@ -25,6 +44,7 @@ local M = {}
 
 ---@class PickyConfigOpts
 ---@field window PickyWindowConfigOpts?
+---@field preview PickyPreviewConfigOpts?
 ---@field keymaps table<string, string>?
 ---@field debounce integer?
 ---@field match_batch integer?
@@ -38,6 +58,15 @@ M.defaults = {
     height = 0.8,
     shrink = false,
     input_position = "top",
+  },
+  preview = {
+    enabled = true,
+    width = 0.5,
+    min_width = 40,
+    max_file_bytes = 512 * 1024,
+    max_lines = 1000,
+    treesitter = true,
+    debounce = 40,
   },
   keymaps = {
     ["<Esc>"] = "close",
@@ -62,6 +91,9 @@ M.defaults = {
     ["<End>"] = "last",
     ["<Tab>"] = "toggle",
     ["<C-a>"] = "toggle_all",
+    ["<M-p>"] = "toggle_preview",
+    ["<C-d>"] = "preview_scroll_down",
+    ["<C-u>"] = "preview_scroll_up",
   },
   debounce = 40,
   -- Items a local source matches per event-loop slice. Matching streams across

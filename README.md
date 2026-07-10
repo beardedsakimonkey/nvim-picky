@@ -126,6 +126,54 @@ kinds. Disable icons and use plain symbol kind labels with:
 picky.setup({ icons = false })
 ```
 
+## Preview
+
+A preview pane opens to the right of the prompt and result list and follows the
+active item. It understands the same common item fields as the built-in opening
+actions: `path` (with `lnum`/`col` centered and highlighted), `bufnr`, `commit`
+(via `git show`), and `tag` (the help page at the tag's line). Items without
+any of these show a `no preview` placeholder.
+
+```lua
+picky.setup({
+  preview = {
+    enabled = true, -- show the preview pane
+    width = 0.5, -- fraction of the picker width, or absolute columns when > 1
+    min_width = 40, -- hide the pane when it would be narrower than this
+    max_file_bytes = 512 * 1024, -- larger files show a stub
+    max_lines = 1000, -- line cap loaded into a preview buffer
+    treesitter = true, -- try treesitter highlighting, fall back to :syntax
+    debounce = 40, -- ms after the active item changes before refreshing
+  },
+})
+```
+
+The same table can be passed per picker: `picky.grep({ preview = { width = 0.6 } })`.
+
+`<M-p>` toggles the pane while the picker is open; the result list reclaims the
+full width. `<C-d>` and `<C-u>` scroll the preview by half a page. Note that
+`<C-u>` shadows insert-mode clear-line in the prompt; remove the mapping with
+`["<C-u>"] = false` to get it back.
+
+Files are read into unlisted scratch buffers — never loaded as real buffers —
+and open buffers are previewed as copies, so no autocmds (LSP, plugins) run
+against previews.
+
+A source can opt out of the pane entirely with `preview = false`, or render
+custom previews with a function; return a truthy value when handled, or falsy
+to fall through to the built-in field dispatch:
+
+```lua
+local source = picky.sources.items(items)
+source.preview = function(_, item, ctx)
+  -- ctx.buf is a reusable scratch buffer already shown in ctx.win.
+  vim.api.nvim_buf_set_lines(ctx.buf, 0, -1, false, { "anything: " .. item.text })
+  return true
+end
+```
+
+Individual items can also set `preview = false` to show the placeholder.
+
 ## Items
 
 Every source emits item tables. Picky reserves four optional fields:
@@ -218,6 +266,8 @@ a default mapping.
 Built-in actions are `edit`, `split`, `vsplit`, `tabedit`, `quickfix`, and
 `close`. Navigation actions are `next`, `previous`, `page_down`, `page_up`,
 `scroll_down`, `scroll_up`, `first`, `last`, `toggle`, and `toggle_all`.
+Preview actions are `toggle_preview` (`<M-p>`), `preview_scroll_down` (`<C-d>`),
+and `preview_scroll_up` (`<C-u>`).
 
 History actions are `history_prev` and `history_next`, on `<C-p>` and `<C-n>`
 by default. A picker records its query when it closes — picking an item with
@@ -281,6 +331,7 @@ vim.api.nvim_set_hl(0, "PickyDir", { link = "NonText" })
 | `PickyGitHash`  | `Identifier`  | commit hashes                         |
 | `PickyBufVisible` | `Statement` | name of a buffer on screen in a window |
 | `PickySelected` | `Visual`      | multi-selected rows                   |
+| `PickyPreviewLine` | `Visual`   | the target line in the preview pane   |
 | `PickyPrompt`   | `Comment`     | the `>` prompt symbol                 |
 | `PickyOperator` | `Operator`    | query operators typed in the prompt   |
 | `PickyCounter`  | `Comment`     | the `n/total` counter                 |

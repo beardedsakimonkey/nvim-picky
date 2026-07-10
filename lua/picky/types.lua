@@ -38,8 +38,16 @@
 ---@field cwd string?
 ---@field refresh "once"|"query"?
 ---@field debounce number?
+---@field preview boolean|fun(self: PickySource, item: PickyItem, ctx: PickyPreviewContext): boolean?? `false` disables the preview pane for this source; a function renders custom previews (return truthy when handled, falsy to fall through to the built-in field dispatch)
 ---@field start fun(self: PickySource, ctx: PickySourceContext)
 ---@field stop fun(self: PickySource)?
+
+---Passed to a source's custom `preview` function. `buf` is a reusable scratch
+---buffer already displayed in `win` and made modifiable for the call.
+---@class PickyPreviewContext
+---@field buf number
+---@field win number
+---@field cwd string?
 
 ---@class PickyActionContext
 ---@field current PickyItem?
