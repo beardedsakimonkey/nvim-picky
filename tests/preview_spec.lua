@@ -274,6 +274,33 @@ t.describe("preview", function()
     session:close()
   end)
 
+  t.it("hides and restores the pane as the editor is resized", function()
+    local old_columns = vim.o.columns
+    vim.o.columns = 100
+    local session = open_items({ { id = 1, text = "one" } }, { window = { width = 0.8 } })
+    local initially_open = preview_win() ~= nil
+
+    vim.o.columns = 50
+    vim.api.nvim_exec_autocmds("VimResized", {})
+    local hidden = preview_win() == nil
+    local narrow_width = vim.api.nvim_win_get_width(results_win())
+
+    vim.o.columns = 100
+    vim.api.nvim_exec_autocmds("VimResized", {})
+    local restored = preview_win() ~= nil
+    local wide_width = vim.api.nvim_win_get_width(results_win())
+
+    session:close()
+    vim.o.columns = old_columns
+    vim.api.nvim_exec_autocmds("VimResized", {})
+
+    t.ok(initially_open, "preview starts open")
+    t.ok(hidden, "preview hides below its width guard")
+    t.eq(40, narrow_width)
+    t.ok(restored, "preview returns when enough width is available")
+    t.eq(48, wide_width)
+  end)
+
   t.it("cleans up preview buffers on close", function()
     local path = temp_file({ "cleanup" })
     local buffers_before = #vim.api.nvim_list_bufs()

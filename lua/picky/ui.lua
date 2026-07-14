@@ -248,6 +248,76 @@ function UI:_open_preview()
   self.last_previewed_id = nil
 end
 
+---Apply a freshly computed layout to every picker window. A preview hidden by
+---the minimum-width guard is closed without changing `preview_wanted`, so it
+---can return if the editor becomes wide enough again.
+---@param layout table
+function UI:_apply_layout(layout)
+  self.layout = layout
+  if self.config.window.shrink then
+    self.results_height = math.max(math.min(#self.session.matches, layout.max_results), 1)
+  else
+    self.results_height = layout.max_results
+  end
+
+  local geo = self:_geometry(layout, self.results_height)
+  vim.api.nvim_win_set_config(self.prompt_win, {
+    relative = "editor",
+    row = geo.prompt.row,
+    col = geo.prompt.col,
+    width = layout.left_width,
+    height = 1,
+    border = layout.border,
+  })
+  vim.api.nvim_win_set_config(self.results_win, {
+    relative = "editor",
+    row = geo.results.row,
+    col = geo.results.col,
+    width = layout.left_width,
+    height = self.results_height,
+    border = layout.border,
+    title = self.session.source.name,
+  })
+
+  local preview_open = self.preview_win and vim.api.nvim_win_is_valid(self.preview_win)
+  if not layout.preview_visible then
+    if preview_open then
+      vim.api.nvim_win_close(self.preview_win, true)
+    end
+    self.preview_win = nil
+  elseif not preview_open then
+    self:_open_preview()
+    self:_refresh_preview()
+  else
+    local config = {
+      relative = "editor",
+      row = geo.preview.row,
+      col = geo.preview.col,
+      width = layout.preview_width,
+      height = geo.preview.height,
+      border = layout.border,
+    }
+    if layout.pad > 0 then
+      config.title = preview_title(self.session:current_item(), layout.preview_width - 2)
+    end
+    vim.api.nvim_win_set_config(self.preview_win, config)
+  end
+end
+
+---Recompute and render the picker after the editor grid changes.
+function UI:_resize()
+  if
+    self.closed
+    or self.session.closed
+    or not vim.api.nvim_win_is_valid(self.prompt_win)
+    or not vim.api.nvim_win_is_valid(self.results_win)
+  then
+    return
+  end
+  self:_apply_layout(UI.layout(self))
+  self:render()
+end
+
 function UI:open()
   self.preview_wanted = self.config.preview.enabled and self.session.source.preview ~= false
   local layout = self:layout()
@@ -360,32 +430,7 @@ function UI:_toggle_preview()
     self.preview_wanted = false
     return
   end
-  self.layout = layout
-  local geo = self:_geometry(layout, self.results_height)
-  vim.api.nvim_win_set_config(self.prompt_win, {
-    relative = "editor",
-    row = geo.prompt.row,
-    col = geo.prompt.col,
-    width = layout.left_width,
-    height = 1,
-    border = layout.border,
-  })
-  vim.api.nvim_win_set_config(self.results_win, {
-    relative = "editor",
-    row = geo.results.row,
-    col = geo.results.col,
-    width = layout.left_width,
-    height = self.results_height,
-    border = layout.border,
-    title = self.session.source.name,
-  })
-  if self.preview_wanted then
-    self:_open_preview()
-    self:_refresh_preview()
-  elseif self.preview_win and vim.api.nvim_win_is_valid(self.preview_win) then
-    vim.api.nvim_win_close(self.preview_win, true)
-    self.preview_win = nil
-  end
+  self:_apply_layout(layout)
 end
 
 ---Scroll the preview window by half a page.
@@ -436,6 +481,12 @@ end
 
 function UI:_setup_autocmds()
   self.augroup = vim.api.nvim_create_augroup("picky.ui." .. self.prompt_buf, { clear = true })
+  vim.api.nvim_create_autocmd("VimResized", {
+    group = self.augroup,
+    callback = function()
+      self:_resize()
+    end,
+  })
   vim.api.nvim_create_autocmd("WinClosed", {
     group = self.augroup,
     pattern = { tostring(self.prompt_win), tostring(self.results_win) },

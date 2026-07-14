@@ -251,6 +251,38 @@ t.describe("ui", function()
     session:close()
   end)
 
+  t.it("reflows the picker when the editor is resized", function()
+    local old_columns, old_lines = vim.o.columns, vim.o.lines
+    local session = open_static({ { id = 1, text = "one" } }, {
+      window = { width = 0.5, height = 0.5 },
+      preview = { enabled = false },
+    })
+    local columns, lines = old_columns + 20, old_lines + 10
+    vim.o.columns = columns
+    vim.o.lines = lines
+    vim.api.nvim_exec_autocmds("VimResized", {})
+
+    local prompt = vim.api.nvim_win_get_config(vim.api.nvim_get_current_win())
+    local results = vim.api.nvim_win_get_config(results_win())
+    local width = math.floor(columns * 0.5)
+    local height = math.floor(lines * 0.5)
+    local max_results = height - 1 - 4
+    local col = math.floor((columns - width - 2) / 2)
+    local row = math.floor((lines - height) / 2)
+
+    vim.o.columns = old_columns
+    vim.o.lines = old_lines
+    vim.api.nvim_exec_autocmds("VimResized", {})
+    session:close()
+
+    t.eq(width, prompt.width)
+    t.eq(width, results.width)
+    t.eq(max_results, results.height)
+    t.eq(col, prompt.col)
+    t.eq(row, prompt.row)
+    t.eq(row + 3, results.row)
+  end)
+
   t.it("runs keymap actions against the session", function()
     local hit = {}
     local session = open_static({ { id = 1, text = "one" }, { id = 2, text = "two" } }, {
