@@ -69,7 +69,10 @@ local function open_item(item, cmd, cwd)
       vsplit = "vertical help %s",
       tabedit = "tab help %s",
     }
-    vim.cmd(by_cmd[cmd]:format(vim.fn.fnameescape(item.tag)))
+    -- Help tags are not filenames. In particular, option tags include their
+    -- quotes (for example, 'winborder'), which fnameescape() would turn into
+    -- backslash-prefixed literals that :help cannot resolve.
+    vim.cmd(by_cmd[cmd]:format(item.tag))
   elseif item.commit then
     local bufnr = commit_buffer(item.commit, cwd)
     if not bufnr then
