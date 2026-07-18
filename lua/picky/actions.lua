@@ -16,8 +16,12 @@ local buffer_cmds = {
 ---@param cwd string?
 ---@return string
 local function resolve_path(path, cwd)
-  if path:sub(1, 1) == "/" or path:sub(1, 1) == "~" or path:match("^%a:[/\\]") then
-    return vim.fn.expand(path)
+  if path:sub(1, 1) == "~" then
+    -- Not expand(): it also globs, choking on names like "foo [b-7]".
+    return vim.fs.normalize(path, { expand_env = false })
+  end
+  if path:sub(1, 1) == "/" or path:match("^%a:[/\\]") then
+    return path
   end
   return vim.fs.joinpath(cwd or assert(vim.uv.cwd()), path)
 end

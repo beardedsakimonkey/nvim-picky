@@ -32,6 +32,24 @@ local function realpath(path)
   return vim.uv.fs_realpath(path) or path
 end
 
+t.describe("actions.resolve_path", function()
+  t.it("returns absolute paths verbatim, even with glob characters", function()
+    -- E944 regression: expand() globbed the brackets as a character class
+    -- whose range "b-7" is reversed.
+    local path = "/tmp/Show (1997) [b-7]"
+    t.eq(path, actions.resolve_path(path))
+  end)
+
+  t.it("expands ~ without globbing", function()
+    local home = assert(vim.uv.os_homedir())
+    t.eq(vim.fs.joinpath(home, "notes [x-a].md"), actions.resolve_path("~/notes [x-a].md"))
+  end)
+
+  t.it("joins relative paths onto cwd", function()
+    t.eq("/tmp/dir/a.txt", actions.resolve_path("a.txt", "/tmp/dir"))
+  end)
+end)
+
 t.describe("actions.edit", function()
   t.it("opens a path item and jumps to lnum/col", function()
     local path = tempfile()
