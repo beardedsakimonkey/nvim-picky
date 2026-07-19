@@ -63,7 +63,7 @@ t.describe("icons.annotate", function()
         display = { { field = "text" } },
       }, "project", "directory")
       t.eq({
-        { text = "", hl = "PickyDir" },
+        { text = "", hl = "Directory" },
         { text = " " },
         { field = "text" },
       }, item.display)

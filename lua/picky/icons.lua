@@ -37,7 +37,7 @@ function M.get(name, kind)
     return nil
   end
   if kind == "directory" then
-    return DIRECTORY_ICON, "PickyDir"
+    return DIRECTORY_ICON, "Directory"
   end
   local base = name:match("[^/]*$") or name
   local ext = base:match("%.([^.]+)$") or ""
